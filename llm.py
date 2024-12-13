@@ -30,52 +30,56 @@
 #     # 获取并返回模型生成的文本
 #     return response.choices[0].message.content
 
-import torch
-from transformers import (
-    AutoModelForCausalLM,
-    AutoTokenizer,
-    AutoConfig,
-)
+import os
+os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
-def ask_llm():
+# 全局变量，缓存模型和 Tokenizer
+_loaded_model = None
+_loaded_tokenizer = None
+
+def ask_llm(model_type):
+    global _loaded_model, _loaded_tokenizer
+
+    # 如果模型和 Tokenizer 尚未加载，则加载
+    if _loaded_model is None or _loaded_tokenizer is None:
+        _loaded_model = AutoModelForCausalLM.from_pretrained(
+            model_type,
+            torch_dtype="auto",
+            device_map="auto"
+        )
+        _loaded_tokenizer = AutoTokenizer.from_pretrained(model_type)
+        print("Model and tokenizer loaded.")
+
+    # 使用已加载的模型和 Tokenizer
+    model = _loaded_model
+    tokenizer = _loaded_tokenizer
+
     with open("output_with_text.txt", "r", encoding="utf-8") as file:
         prompt = file.read()
-    
-        # 选择模型的ID或路径，可以是Hugging Face上的预训练模型，也可以是本地路径
-        model_id = "gpt2"  # 替换为你需要的模型ID，例如 'gpt2' 或其他模型的ID 'meta-llama/Meta-Llama-3-8B-Instruct'
 
-        # 1. 加载模型配置
-        config = AutoConfig.from_pretrained(model_id)
+    messages = [
+        {"role": "system", "content": "You are a helpful and harmless assistant. You are Qwen developed by Alibaba. You should think step-by-step."},
+        {"role": "user", "content": prompt}
+    ]
+    text = tokenizer.apply_chat_template(
+        messages,
+        tokenize=False,
+        add_generation_prompt=True
+    )
+    model_inputs = tokenizer([text], return_tensors="pt").to(model.device)
 
-        # 2. 加载模型
-        model = AutoModelForCausalLM.from_pretrained(model_id, config=config)
+    generated_ids = model.generate(
+        **model_inputs,
+        max_new_tokens=512,
+        temperature=0.2  # 控制生成的随机性
+    )
+    generated_ids = [
+        output_ids[len(input_ids):] for input_ids, output_ids in zip(model_inputs.input_ids, generated_ids)
+    ]
 
-        # 3. 加载tokenizer（词元化器）
-        tokenizer = AutoTokenizer.from_pretrained(model_id)
+    response = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[0]
+    return response
 
-        # 4. 使用模型进行推理
-        # 输入文本
-        input_text = prompt
-
-        # 将输入文本转化为模型的输入格式
-        inputs = tokenizer(input_text, return_tensors="pt")
-
-        # 使用模型进行推理，得到输出
-        with torch.no_grad():
-            # 设置温度
-            temperature = 0.2  # 可调节的温度参数，通常在 0.7 到 1.0 之间
-
-            # 生成文本
-            outputs = model.generate(
-                inputs["input_ids"],
-                max_new_tokens=50,
-                temperature=temperature,  # 设置温度
-                do_sample=True,           # 必须启用采样以使温度生效
-            )
-
-        # 解码输出
-        generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
-
-        print("Generated text:", generated_text)
-
-ask_llm()
+# Qwen/Qwen2.5-7B-Instruct qwen2.5-7b-instruct Meta-Llama-3-8B-Instruct
+# ask_llm("Qwen/Qwen2.5-7B-Instruct")
