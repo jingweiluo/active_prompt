@@ -66,7 +66,7 @@ Returns:
 (4) mne.Epochs的入参proj为true,也可为False
 (5) tmin, tmax = 3, 7
 """
-def load_bci_iv_2b(sub_index):
+def load_bci_iv_2b(sub_index, fmin, fmax, tmin, tmax):
     datapath_bci_iv_2b = 'e:/Data/BCICIV_2b_gdf/'
     trials = []
     labels = []
@@ -80,7 +80,7 @@ def load_bci_iv_2b(sub_index):
         if i == 4:
             sep_index = len(trials)
         
-        trials.extend(get_bci_2b_trials(trial_path))
+        trials.extend(get_bci_2b_trials(trial_path, fmin, fmax, tmin, tmax))
         labels.extend(get_bci_2b_labels(label_path))
 
     # Use the first three sessions as training data, and the last two sessions as testing data.
@@ -88,9 +88,9 @@ def load_bci_iv_2b(sub_index):
     # print(len(train_data), len(test_data), len(train_labels), len(test_labels))
     return train_data, test_data, train_labels, test_labels
 
-def get_bci_2b_trials(filepath):
+def get_bci_2b_trials(filepath, fmin=4, fmax=40, tmin=3, tmax=7):
     raw = mne.io.read_raw_gdf(filepath, preload=True)
-    # raw.filter(1, 40)
+    raw.filter(fmin, fmax)
 
     # extract events and event_id
     events, event_id = mne.events_from_annotations(raw)
@@ -100,9 +100,6 @@ def get_bci_2b_trials(filepath):
 
     # return Indices of good channels
     picks = mne.pick_types(raw.info, meg=False, eeg=True, eog=False, stim=False, exclude='bads')
-
-    # start and end seconds of each trial
-    tmin, tmax = 3, 7
 
     # event_id to retain
     keys_to_keep = ['769', '770', '783']

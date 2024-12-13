@@ -7,16 +7,25 @@ from prompt_writer import prompt
 import datetime
 
 def extract_array_from_string(input_string):
-    # 使用正则提取方括号内的内容
-    match = re.search(r'\[\s*(.*?)\s*\]', input_string, re.DOTALL)
-    if match:
-        array_string = match.group(1)
-        # 去除行尾注释 (例如 // 或 # 开头的内容)
-        clean_array_string = re.sub(r'//.*?$|#.*?$', '', array_string, flags=re.MULTILINE).strip()
-        # 将清理后的字符串解析为 JSON 数组
-        array = json.loads(f"[{clean_array_string}]")
-        return array
-    return None
+    """
+    从字符串中提取合法的 JSON 数组内容。
+    
+    参数:
+    - data: str，包含 JSON 数据的字符串
+    
+    返回:
+    - list，提取出的数组内容
+    """
+    try:
+        # 使用正则表达式提取数组部分
+        match = re.search(r'\[.*?\]', input_string)
+        if match:
+            json_array = match.group(0)  # 提取匹配的数组部分
+            return json.loads(json_array)  # 将数组部分解析为 Python 列表
+        else:
+            raise ValueError("未找到合法的 JSON 数组")
+    except json.JSONDecodeError as e:
+        raise ValueError(f"JSON 解码失败: {e}")
 
 def get_accuracy_and_log(y_true, y_pred, test_mode, num_demos, sub_index, max_predict_num, model_type, way_select_demo, selected_indices, selected_labels):
     # 计算准确率
