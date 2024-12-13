@@ -160,4 +160,88 @@ Recall: 0.3132867132867133
 F1 Score: 0.26340996168582376
 
 # 0.2531
-# 0.2286
+# 0.2286======================================================================
+--- 2024-12-12 20:33:58.116189 ---
+test_mode: 测试集(inner表示80%中除去demo, outer表示20%的测试集)outer_test
+model_type: qwen2.5-7b-instruct
+sub_index: 1
+num_demos: 8
+max_predict_num: 10
+选择演示示例的方式: random
+选择的index: [117, 294, 198, 15, 62, 355, 215, 2]
+选择的labels: ['left_hand', 'right_hand', 'right_hand', 'left_hand', 'right_hand', 'right_hand', 'right_hand', 'left_hand']
+True Label: ['right_hand', 'left_hand', 'right_hand', 'left_hand', 'left_hand', 'left_hand', 'right_hand', 'left_hand', 'left_hand', 'left_hand', 'right_hand', 'left_hand', 'right_hand', 'left_hand', 'right_hand', 'left_hand', 'left_hand', 'left_hand', 'left_hand', 'left_hand']
+Pred Label: ['right_hand', 'right_hand', 'right_hand', 'right_hand', 'right_hand', 'right_hand', 'right_hand', 'left_hand', 'right_hand', 'right_hand', 'right_hand', 'right_hand', 'right_hand', 'left_hand', 'right_hand', 'left_hand', 'right_hand', 'right_hand', 'right_hand', 'right_hand']
+Accuracy: 0.45
+Precision: 0.6764705882352942
+Recall: 0.6071428571428571
+F1 Score: 0.4373401534526854
+
+======================================================================
+--- 2024-12-12 20:37:45.514653 ---
+test_mode: 测试集(inner表示80%中除去demo, outer表示20%的测试集)outer_test
+model_type: qwen2.5-7b-instruct
+sub_index: 1
+num_demos: 8
+max_predict_num: 10
+选择演示示例的方式: random
+选择的index: [95, 157, 239, 202, 35, 135, 137, 3]
+选择的labels: ['left_hand', 'left_hand', 'left_hand', 'left_hand', 'left_hand', 'left_hand', 'right_hand', 'right_hand']
+True Label: ['right_hand', 'left_hand', 'right_hand', 'left_hand', 'left_hand', 'left_hand', 'right_hand', 'left_hand', 'left_hand', 'left_hand', 'right_hand', 'left_hand', 'right_hand', 'left_hand', 'right_hand', 'left_hand', 'left_hand', 'left_hand', 'left_hand', 'left_hand']
+Pred Label: ['left_hand', 'left_hand', 'left_hand', 'right_hand', 'left_hand', 'right_hand', 'right_hand', 'right_hand', 'right_hand', 'right_hand', 'right_hand', 'right_hand', 'right_hand', 'right_hand', 'right_hand', 'right_hand', 'right_hand', 'right_hand', 'right_hand', 'right_hand']
+Accuracy: 0.3
+Precision: 0.375
+Recall: 0.40476190476190477
+F1 Score: 0.29292929292929293
+
+======================================================================
+--- 2024-12-12 20:37:53.748506 ---
+test_mode: 测试集(inner表示80%中除去demo, outer表示20%的测试集)outer_test
+model_type: qwen2.5-7b-instruct
+sub_index: 1
+num_demos: 8
+max_predict_num: 10
+选择演示示例的方式: random
+选择的index: [221, 397, 23, 202, 136, 318, 334, 304]
+选择的labels: ['right_hand', 'right_hand', 'right_hand', 'left_hand', 'left_hand', 'left_hand', 'left_hand', 'right_hand']
+True Label: ['right_hand', 'left_hand', 'right_hand', 'left_hand', 'left_hand', 'left_hand', 'right_hand', 'left_hand', 'left_hand', 'left_hand', 'right_hand', 'left_hand', 'right_hand', 'left_hand', 'right_hand', 'left_hand', 'left_hand', 'left_hand', 'left_hand', 'left_hand']
+Pred Label: ['left_hand', 'left_hand', 'left_hand', 'left_hand', 'left_hand', 'left_hand', 'left_hand', 'right_hand', 'left_hand', 'left_hand', 'right_hand', 'left_hand', 'left_hand', 'right_hand', 'left_hand', 'right_hand', 'left_hand', 'right_hand', 'left_hand', 'right_hand']
+Accuracy: 0.5
+Precision: 0.40476190476190477
+Recall: 0.40476190476190477
+F1 Score: 0.40476190476190477
+
+======================================================================
+--- 2024-12-12 20:38:03.418495 ---
+test_mode: 测试集(inner表示80%中除去demo, outer表示20%的测试集)outer_test
+model_type: qwen2.5-7b-instruct
+sub_index: 1
+num_demos: 8
+max_predict_num: 10
+选择演示示例的方式: random
+选择的index: [381, 239, 209, 251, 130, 318, 88, 365]
+选择的labels: ['left_hand', 'left_hand', 'right_hand', 'left_hand', 'right_hand', 'left_hand', 'right_hand', 'left_hand']
+True Label: ['right_hand', 'left_hand', 'right_hand', 'left_hand', 'left_hand', 'left_hand', 'right_hand', 'left_hand', 'left_hand', 'left_hand', 'right_hand', 'left_hand', 'right_hand', 'left_hand', 'right_hand', 'left_hand', 'left_hand', 'left_hand', 'left_hand', 'left_hand']
+Pred Label: ['left_hand', 'left_hand', 'right_hand', 'left_hand', 'right_hand', 'left_hand', 'right_hand', 'left_hand', 'right_hand', 'left_hand', 'left_hand', 'left_hand', 'left_hand', 'left_hand', 'right_hand', 'right_hand', 'right_hand', 'right_hand', 'right_hand', 'right_hand']
+Accuracy: 0.5
+Precision: 0.5
+Recall: 0.5
+F1 Score: 0.4791666666666667
+
+======================================================================
+--- 2024-12-12 20:38:12.168126 ---
+test_mode: 测试集(inner表示80%中除去demo, outer表示20%的测试集)outer_test
+model_type: qwen2.5-7b-instruct
+sub_index: 1
+num_demos: 8
+max_predict_num: 10
+选择演示示例的方式: random
+选择的index: [361, 152, 79, 383, 115, 300, 274, 219]
+选择的labels: ['left_hand', 'left_hand', 'right_hand', 'left_hand', 'left_hand', 'right_hand', 'right_hand', 'right_hand']
+True Label: ['right_hand', 'left_hand', 'right_hand', 'left_hand', 'left_hand', 'left_hand', 'right_hand', 'left_hand', 'left_hand', 'left_hand', 'right_hand', 'left_hand', 'right_hand', 'left_hand', 'right_hand', 'left_hand', 'left_hand', 'left_hand', 'left_hand', 'left_hand']
+Pred Label: ['left_hand', 'left_hand', 'right_hand', 'right_hand', 'right_hand', 'right_hand', 'right_hand', 'right_hand', 'right_hand', 'right_hand', 'left_hand', 'left_hand', 'right_hand', 'right_hand', 'right_hand', 'right_hand', 'right_hand', 'right_hand', 'right_hand', 'left_hand']
+Accuracy: 0.35
+Precision: 0.43333333333333335
+Recall: 0.44047619047619047
+F1 Score: 0.3483709273182957
+
