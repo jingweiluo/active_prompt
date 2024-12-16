@@ -94,8 +94,8 @@ def collect_y_pred(demo_data, demo_labels, predict_data, max_predict_num, model_
         test_data = predict_data[i:i+max_predict_num] if i + max_predict_num <= len(predict_data) else predict_data[i:len(predict_data)]
         prompt(demo_data, demo_labels, test_data)
         answer = ask_llm(model_type)
-        y_pred_sub = extract_array_from_string(answer)
         print(f'第{(i // max_predict_num) + 1}段,API输出为:{answer}')
+        y_pred_sub = extract_array_from_string(answer)
         if y_pred_sub:  # 确保提取的结果不为空
             y_pred.extend(y_pred_sub)
     return y_pred
