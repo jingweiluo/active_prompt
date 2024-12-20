@@ -1,4 +1,5 @@
-
+import sys
+sys.path.append('/home/luojingwei/code')
 import numpy as np
 # RANDOM_STATE_SEED = 1
 # np.random.seed(RANDOM_STATE_SEED)
@@ -10,6 +11,7 @@ from modAL.models import ActiveLearner, Committee
 from modAL.disagreement import vote_entropy_sampling, max_disagreement_sampling, consensus_entropy_sampling
 from scipy.stats import entropy
 from copy import deepcopy
+from tqdm import tqdm
 
 def findIndex(X, v):
     found_idx = None
@@ -24,19 +26,18 @@ def findIndex(X, v):
 # ==========================================================载入数据==================================================
 sub_index = 5
 train_data, test_data, train_labels, test_labels = get_moabb_data("2a", sub_index, 0) # 2b数据集，sub_index, test_id
-lab_map = {
-    'left_hand': 1,
-    'right_hand':2
-}
-X = train_data.reshape(train_data.shape[0],-1)
-targets = np.array([lab_map[lab] for lab in train_labels])
-
-Y = test_data.reshape(test_data.shape[0],-1)
-targets_y = np.array([lab_map[lab] for lab in test_labels])
 
 
-def qbc(n_members, n_initial, n_queries):
+def qbc(train_data, train_labels, n_members, n_initial, n_queries):
     # ==========================================================初始化数据==================================================
+    train_data = np.array(train_data)
+    train_labels = np.array(train_labels)
+    X = train_data.reshape(train_data.shape[0],-1)
+    lab_map = {
+        'left_hand': 1,
+        'right_hand':2
+    }
+    targets = np.array([lab_map[lab] for lab in train_labels])
     X_pool = deepcopy(X)
     y_pool = deepcopy(targets)
     # ==========================================================初始化learner==================================================
@@ -72,7 +73,7 @@ def qbc(n_members, n_initial, n_queries):
     # =============================================================Query=====================================================
     idx_list = []
     # n_queries = 8
-    for idx in range(n_queries):
+    for _ in range(n_queries):
         query_idx, query_instance = committee.query(X_pool)
         gloabl_idx = findIndex(X, query_instance[0])
         idx_list.append(gloabl_idx)
@@ -82,24 +83,25 @@ def qbc(n_members, n_initial, n_queries):
         )
         X_pool = np.delete(X_pool, query_idx, axis=0)
         y_pool = np.delete(y_pool, query_idx)
+    return idx_list, committee
 
-    # =============================================================测试=====================================================
-    test_score = committee.score(Y, targets_y)
-    # print('测试集准确率:', test_score)
-    with open(f"log/qbc_log", 'a',  encoding='utf-8') as file:
-        file.write(f"测试集准确率: {test_score}\n")
-    return test_score
-
-
-def rand_select(n_members, n_initial, n_queries):
+def rand_select(train_data, train_labels, n_members, n_initial):
     # ==========================================================初始化数据==================================================
+    train_data = np.array(train_data)
+    train_labels = np.array(train_labels)
+    X = train_data.reshape(train_data.shape[0],-1)
+    lab_map = {
+        'left_hand': 1,
+        'right_hand':2
+    }
+    targets = np.array([lab_map[lab] for lab in train_labels])
     X_pool = deepcopy(X)
     y_pool = deepcopy(targets)
     # ==========================================================初始化learner==================================================
     # n_members = 5
     learner_list = list()
 
-    # n_initial = 12
+    # n_initial = 20
     n_idx = np.random.choice(range(X_pool.shape[0]), size=n_initial, replace=False)
 
     for member_idx in range(n_members):
@@ -124,29 +126,39 @@ def rand_select(n_members, n_initial, n_queries):
         learner_list=learner_list,
         query_strategy=consensus_entropy_sampling, # vote_entropy_sampling max_disagreement_sampling, consensus_entropy_sampling
     )
-    # =============================================================测试=====================================================
-    test_score = committee.score(Y, targets_y)
-    # print('测试集准确率:', test_score)
-    with open(f"log/random_log", 'a',  encoding='utf-8') as file:
-        file.write(f"测试集准确率: {test_score}\n")
-    return test_score
+    return n_idx, committee
 
+# =============================================================测试=====================================================
+def compare_test(n_times):
+    # 导入测试数据
+    lab_map = {
+        'left_hand': 1,
+        'right_hand':2
+    }
+    Y = test_data.reshape(test_data.shape[0],-1)
+    targets_y = np.array([lab_map[lab] for lab in test_labels])
 
-qbc_score_list = []
-random_score_list = []
+    qbc_score_list = []
+    rand_score_list = []
+    for i in tqdm(range(n_times)):
+        _, qbc_committe = qbc(train_data, train_labels, n_members=5, n_initial=12, n_queries=8)
+        qbc_score = qbc_committe.score(Y, targets_y)
+        qbc_score_list.append(qbc_score)
+        with open(f"log/no_llm_qbc_log", 'a',  encoding='utf-8') as file:
+            file.write(f"测试集准确率: {qbc_score}\n")
 
-for i in range(30):
-    qbc_score = qbc(n_members=5, n_initial=12, n_queries=8)
-    qbc_score_list.append(qbc_score)
-    random_score = qbc(n_members=5, n_initial=20, n_queries=0)
-    random_score_list.append(random_score)
+        _, rand_committe = rand_select(train_data, train_labels, n_members=5, n_initial=20)
+        rand_score = rand_committe.score(Y, targets_y)
+        with open(f"log/no_llm_rand_log", 'a',  encoding='utf-8') as file:
+            file.write(f"测试集准确率: {rand_score}\n")
+        rand_score_list.append(rand_score)
 
-qbc_mean = np.mean(qbc_score_list)
-random_mean = np.mean(random_score_list)
-print(qbc_mean, random_mean)
+    qbc_mean = np.mean(qbc_score_list)
+    random_mean = np.mean(rand_score_list)
+    print(qbc_mean, random_mean)
 
-
-
+if __name__=='__main__':
+    compare_test(100)
 
 # =============================================================画图=====================================================
 

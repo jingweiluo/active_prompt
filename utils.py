@@ -18,7 +18,7 @@ def extract_array_from_string(input_string):
     """
     try:
         # 使用正则表达式提取数组部分
-        match = re.search(r'\[.*?\]', input_string)
+        match = re.search(r'\[.*?\]', input_string, re.DOTALL)
         if match:
             json_array = match.group(0)  # 提取匹配的数组部分
             return json.loads(json_array)  # 将数组部分解析为 Python 列表

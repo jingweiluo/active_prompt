@@ -1,11 +1,12 @@
 import numpy as np # type: ignore
 import random
-
+import sys
+sys.path.append('/home/luojingwei/code')
 from active_prompt.prompt.prompt_writer import prompt
 from active_prompt.query.active_select import BasicRD, find_k_similar, find_k_similar_for_each_label
-from active_prompt.load.load_data import load_all_trials
 from utils import extract_array_from_string, collect_y_pred, get_accuracy_and_log
 from active_prompt.load.load_moabb import get_moabb_data
+from active_prompt.query.qbc import qbc
 # from llm import ask_llm
 
 def get_active_learned_samples_indices(train_data, num_demos):
@@ -30,6 +31,8 @@ def active_learning_predict(test_mode, num_demos, sub_index, max_predict_num, mo
         selected_indices = random.sample(list(range(len(train_labels))), num_demos)
     elif way_select_demo == "basic_rd":
         selected_indices = get_active_learned_samples_indices(train_data, num_demos)
+    elif way_select_demo == "qbc":
+        selected_indices,_ = qbc(train_data, train_labels, n_members=5, n_initial=12, n_queries=num_demos)
     selected_labels = [train_labels[i] for i in selected_indices]
 
     demo_data = [train_data[i] for i in selected_indices]
@@ -74,8 +77,8 @@ if __name__ == '__main__':
     num_demos = 8 # 演示示例的数量
     sub_index = 3 # 被试编号(1-9)
     max_predict_num = 10 # 单次最多预测样本的个数，演示示例+单次预测样本个数，加起来的本文长度不能超过LLM的max_token
-    model_type = 'Qwen/Qwen2.5-7B-Instruct'# "Qwen/Qwen2.5-Coder-32B-Instruct" # 'Qwen/Qwen2.5-7B-Instruct'# "qwen2.5-7b-instruct" Qwen/Qwen2.5-Coder-32B-Instruct
-    way_select_demo = "random" # basic_rd, random
+    model_type = 'Qwen/Qwen2.5-1.5B-Instruct'# "Qwen/Qwen2.5-Coder-32B-Instruct" # 'Qwen/Qwen2.5-7B-Instruct'# "qwen2.5-7b-instruct" Qwen/Qwen2.5-Coder-32B-Instruct Qwen/Qwen2.5-1.5B-Instruct
+    way_select_demo = "random" # basic_rd, random, qbc
 
     active_learning_predict('outer_test', num_demos, sub_index, max_predict_num, model_type, way_select_demo)
     # kate_learning_predict(num_demos, sub_index)
