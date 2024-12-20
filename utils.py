@@ -2,8 +2,8 @@ import json
 import re
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score # type: ignore
 from collections import Counter
-from llm import ask_llm
-from prompt_writer import prompt
+from active_prompt.prompt.llm import ask_llm
+from active_prompt.prompt.prompt_writer import prompt
 import datetime
 
 def extract_array_from_string(input_string):

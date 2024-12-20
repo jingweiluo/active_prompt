@@ -1,11 +1,11 @@
 import numpy as np # type: ignore
 import random
 
-from prompt_writer import prompt
-from active_select import BasicRD, find_k_similar, find_k_similar_for_each_label
-from load_data import load_all_trials
+from active_prompt.prompt.prompt_writer import prompt
+from active_prompt.query.active_select import BasicRD, find_k_similar, find_k_similar_for_each_label
+from active_prompt.load.load_data import load_all_trials
 from utils import extract_array_from_string, collect_y_pred, get_accuracy_and_log
-from load_moabb import get_moabb_data
+from active_prompt.load.load_moabb import get_moabb_data
 # from llm import ask_llm
 
 def get_active_learned_samples_indices(train_data, num_demos):
