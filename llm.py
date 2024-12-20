@@ -46,7 +46,8 @@ def ask_llm(model_type):
         _loaded_model = AutoModelForCausalLM.from_pretrained(
             model_type,
             torch_dtype="auto",
-            device_map="auto"
+            device_map="auto",
+            # force_download=True
         )
         _loaded_tokenizer = AutoTokenizer.from_pretrained(model_type)
         print("Model and tokenizer loaded.")
@@ -59,7 +60,7 @@ def ask_llm(model_type):
         prompt = file.read()
 
     messages = [
-        {"role": "system", "content": "You are a helpful and harmless assistant. You are Qwen developed by Alibaba. You should think step-by-step."},
+        {"role": "system", "content": ""},
         {"role": "user", "content": prompt}
     ]
     text = tokenizer.apply_chat_template(
