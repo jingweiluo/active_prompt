@@ -123,20 +123,30 @@ def get_moabb_data(dataset_name, sub_index, testid):
         return np.concatenate(feat_map, axis=1)
 
     feat_map = get_freq_spatial_feat(X, labels, csp) # num_trials, n_components * num_freq_bands 由于n_components < n_chans, 所以=n_chans
-    index = get_first_index(meta, column_index=1, target_value="3test") # number of training trials
+    index = get_first_index(meta, column_index=1, target_value="1test") # number of training trials
+    print(meta)
+    # 2b数据集分成了5个session，分别由120，120，160，160， 160个trial
+    # s1 = slice(0, 120)
+    # s2 = slice(120, 240)
+    # s3 = slice(240, 400)
+    # s4 = slice(400, 560)
+    # s5 = slice(560, 720)
 
-    s1 = slice(0, 120)
-    s2 = slice(120, 240)
-    s3 = slice(240, 400)
-    s4 = slice(400, 560)
-    s5 = slice(560, 720)
+    # testid_dict = {
+    #     0: s1,
+    #     1: s2,
+    #     2: s3,
+    #     3: s4,
+    #     4: s5
+    # }
+
+    # 2a数据集分成了2个session，在不同天采集，分别由144，144个trial
+    s1 = slice(0, 144)
+    s2 = slice(144, 288)
 
     testid_dict = {
         0: s1,
         1: s2,
-        2: s3,
-        3: s4,
-        4: s5
     }
 
     train_data, test_data, train_labels, test_labels = np.delete(feat_map, testid_dict[testid], axis=0), feat_map[testid_dict[testid]], np.delete(labels, testid_dict[testid], axis=0), labels[testid_dict[testid]]
@@ -144,4 +154,4 @@ def get_moabb_data(dataset_name, sub_index, testid):
     return train_data, test_data, train_labels, test_labels
     # np.savez('moabb_bci_iv_2b', train_data=train_data, test_data=test_data, train_labels=train_labels, test_labels=test_labels)
 
-# get_moabb_data("2b", 1, 3)
+# get_moabb_data("2a", 3, 1)

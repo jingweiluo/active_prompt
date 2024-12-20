@@ -25,7 +25,7 @@ def active_learning_predict(test_mode, num_demos, sub_index, max_predict_num, mo
     # moabb_2b_loaded = np.load('../mi_pipeline/moabb_bci_iv_2b.npz')
     # train_data, test_data, train_labels, test_labels = (moabb_2b_loaded[key] for key in moabb_2b_loaded)
 
-    train_data, test_data, train_labels, test_labels = get_moabb_data("2b", sub_index, 3) # 2b数据集，sub_index, test_id
+    train_data, test_data, train_labels, test_labels = get_moabb_data("2a", sub_index, 0) # 2b数据集，sub_index, test_id
     train_data = ndToList(train_data)
     test_data = ndToList(test_data)
     train_labels = train_labels.tolist()
@@ -77,7 +77,7 @@ def active_learning_predict(test_mode, num_demos, sub_index, max_predict_num, mo
 
 if __name__ == '__main__':
     num_demos = 8 # 演示示例的数量
-    sub_index = 1 # 被试编号(1-9)
+    sub_index = 3 # 被试编号(1-9)
     max_predict_num = 10 # 单次最多预测样本的个数，演示示例+单次预测样本个数，加起来的本文长度不能超过LLM的max_token
     model_type = "Qwen/Qwen2.5-Coder-32B-Instruct" # 'Qwen/Qwen2.5-7B-Instruct'# "qwen2.5-7b-instruct" Qwen/Qwen2.5-Coder-32B-Instruct
     way_select_demo = "random" # basic_rd, random
