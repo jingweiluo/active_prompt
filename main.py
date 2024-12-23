@@ -7,6 +7,7 @@ from active_prompt.query.active_select import BasicRD, find_k_similar, find_k_si
 from utils import extract_array_from_string, collect_y_pred, get_accuracy_and_log
 from active_prompt.load.load_moabb import get_moabb_data
 from active_prompt.query.qbc import qbc
+from tqdm import tqdm
 # from llm import ask_llm
 
 def get_active_learned_samples_indices(train_data, num_demos):
@@ -20,13 +21,7 @@ def get_active_learned_samples_indices(train_data, num_demos):
 def ndToList(array):
     return [array[i] for i in range(array.shape[0])]
 
-def active_learning_predict(test_mode, num_demos, sub_index, max_predict_num, model_type, way_select_demo):
-    train_data, test_data, train_labels, test_labels = get_moabb_data("2a", sub_index, 0) # 2b数据集，sub_index, test_id
-    train_data = ndToList(train_data)
-    test_data = ndToList(test_data)
-    train_labels = train_labels.tolist()
-    test_labels = test_labels.tolist()
-
+def active_learning_predict(train_data, test_data, train_labels, test_labels, test_mode, num_demos, sub_index, max_predict_num, model_type, way_select_demo, is_model_online):
     if way_select_demo == "random":
         selected_indices = random.sample(list(range(len(train_labels))), num_demos)
     elif way_select_demo == "basic_rd":
@@ -42,12 +37,12 @@ def active_learning_predict(test_mode, num_demos, sub_index, max_predict_num, mo
 
     if test_mode == 'inner_test':
         y_true = sub_test_labels
-        y_pred = collect_y_pred(demo_data, demo_labels, sub_test_data, max_predict_num, model_type)
+        y_pred = collect_y_pred(demo_data, demo_labels, sub_test_data, max_predict_num, model_type, is_model_online)
     elif test_mode == 'outer_test':
         y_true = test_labels
-        y_pred = collect_y_pred(demo_data, demo_labels, test_data, max_predict_num, model_type)
-    get_accuracy_and_log(y_true, y_pred, test_mode, num_demos, sub_index, max_predict_num, model_type, way_select_demo, selected_indices, selected_labels)
-
+        y_pred = collect_y_pred(demo_data, demo_labels, test_data, max_predict_num, model_type, is_model_online)
+    accuracy, precision, recall, f1 = get_accuracy_and_log(y_true, y_pred, test_mode, num_demos, sub_index, max_predict_num, model_type, way_select_demo, selected_indices, selected_labels)
+    return accuracy, precision, recall, f1
 
 # def kate_learning_predict(k, sub_index):
 #     train_data, test_data, train_labels, test_labels = load_all_trials(sub_index)
@@ -77,9 +72,35 @@ if __name__ == '__main__':
     num_demos = 8 # 演示示例的数量
     sub_index = 3 # 被试编号(1-9)
     max_predict_num = 10 # 单次最多预测样本的个数，演示示例+单次预测样本个数，加起来的本文长度不能超过LLM的max_token
-    model_type = 'Qwen/Qwen2.5-1.5B-Instruct'# "Qwen/Qwen2.5-Coder-32B-Instruct" # 'Qwen/Qwen2.5-7B-Instruct'# "qwen2.5-7b-instruct" Qwen/Qwen2.5-Coder-32B-Instruct Qwen/Qwen2.5-1.5B-Instruct
+    model_type = 'qwen2.5-3b-instruct'# "qwen2.5-3b-instruct" "Qwen/Qwen2.5-Coder-32B-Instruct" # 'Qwen/Qwen2.5-7B-Instruct'# "qwen2.5-7b-instruct" Qwen/Qwen2.5-Coder-32B-Instruct Qwen/Qwen2.5-1.5B-Instruct
     way_select_demo = "random" # basic_rd, random, qbc
+    test_mode = "outer_test"
+    dataset_name = "2a"
+    test_id = 1 # 2a中只有0-1两个session，2b中有0-4五个session
+    is_model_online = True # 谨慎开启，设置为online时要提前计算费用
+    repeat_times = 1
 
-    active_learning_predict('outer_test', num_demos, sub_index, max_predict_num, model_type, way_select_demo)
     # kate_learning_predict(num_demos, sub_index)
+
+    train_data, test_data, train_labels, test_labels = get_moabb_data(dataset_name, sub_index, test_id) # 2b数据集，sub_index, test_id
+    train_data = ndToList(train_data)
+    test_data = ndToList(test_data)
+    train_labels = train_labels.tolist()
+    test_labels = test_labels.tolist()
+
+    def compare_test(n_times):
+        qbc_score_list = []
+        rand_score_list = []
+        for i in tqdm(range(n_times)):
+            accuracy, precision, recall, f1 = active_learning_predict(train_data, test_data, train_labels, test_labels, test_mode, num_demos, sub_index, max_predict_num, model_type, 'qbc', is_model_online)
+            accuracy2, precision2, recall2, f12 = active_learning_predict(train_data, test_data, train_labels, test_labels, test_mode, num_demos, sub_index, max_predict_num, model_type, 'random', is_model_online)
+
+            qbc_score_list.append(accuracy)
+            rand_score_list.append(accuracy2)
+
+            qbc_mean = np.mean(qbc_score_list)
+            random_mean = np.mean(rand_score_list)
+            print(qbc_mean, random_mean)
+    
+    compare_test(repeat_times)
 
