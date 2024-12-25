@@ -3,7 +3,8 @@ import random
 import sys
 import os
 current_file_path = os.path.abspath(__file__)
-parent_parent_dir = os.path.dirname(os.path.dirname(os.path.dirname(current_file_path)))
+parent_parent_dir = os.path.dirname(os.path.dirname(current_file_path))
+print(parent_parent_dir)
 sys.path.append(parent_parent_dir)
 from active_prompt.prompt.prompt_writer import prompt
 from active_prompt.query.active_select import BasicRD, find_k_similar, find_k_similar_for_each_label
