@@ -47,7 +47,7 @@ def findNearestSampleIndex(cluster_samples, cluster_centroids, measurement):
     return nearest_local_index
 
 
-def qbc(train_data, train_labels, n_members, n_initial, n_queries, estimator, init_idx=None):
+def qbc(train_data, train_labels, n_members, n_initial, n_queries, estimator=RandomForestClassifier, init_idx=None):
     # ==========================================================初始化数据==================================================
     train_data = np.array(train_data)
     train_labels = np.array(train_labels)

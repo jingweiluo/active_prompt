@@ -132,7 +132,7 @@ def prompt(train_data, train_label, test_data):
         
         # 分析方法
         file.write("### 分析方法 ###\n")
-        file.write("请构建一个基于多层Transformer的模型来分析EEG数据\n\n")
+        file.write("让我们一步步分析，首先请构建一个分类模型来分析EEG数据\n\n")
 
         # 示例样本
         file.write("### 示例样本 ###\n")
