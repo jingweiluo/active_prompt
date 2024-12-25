@@ -29,6 +29,23 @@ def findIndex(X, v):
     else:
         print("未在X中找到匹配的向量v")
         return None
+    
+def findNearestSampleIndex(cluster_samples, cluster_centroids, measurement):
+    # 返回在聚类中的local index
+    if measurement == "ed":
+        distances = np.linalg.norm(cluster_samples - cluster_centroids, axis=1)
+        nearest_local_index = np.argmin(distances)
+    elif measurement == "cs":
+        # 计算余弦相似度
+        dot_products = np.dot(cluster_samples, cluster_centroids)
+        norms_samples = np.linalg.norm(cluster_samples, axis=1)
+        norm_centroid = np.linalg.norm(cluster_centroids)
+        cosine_similarities = dot_products / (norms_samples * norm_centroid)
+        nearest_local_index = np.argmax(cosine_similarities)
+    else:
+        raise ValueError("Unsupported measurement type. Use 'ed' for Euclidean distance or 'cs' for cosine similarity.")
+    return nearest_local_index
+
 
 def qbc(train_data, train_labels, n_members, n_initial, n_queries, init_idx=None):
     # ==========================================================初始化数据==================================================
@@ -131,7 +148,7 @@ def rand_select(train_data, train_labels, n_members, n_initial):
     return n_idx, committee
 
 
-def rd(query_method, train_data, train_labels, n_members, n_initial, n_queries, init_idx=None):
+def rd(query_method, train_data, train_labels, n_members, n_initial, n_queries, measurement, init_idx=None):
     # ==========================================================初始化数据==================================================
     train_data = np.array(train_data)
     train_labels = np.array(train_labels)
@@ -146,7 +163,7 @@ def rd(query_method, train_data, train_labels, n_members, n_initial, n_queries, 
     learner_list = list()
 
     # n_initial = 12
-    n_idx, kmeans = find_init_centroids(X, n_initial)
+    n_idx = find_init_centroids(X, n_initial, measurement)
 
     for member_idx in range(n_members):
         # BootStrap 有放回的生成训练子集
@@ -190,12 +207,10 @@ def rd(query_method, train_data, train_labels, n_members, n_initial, n_queries, 
 
         # Basic: select the sample closest to its centroid for labeling
         if query_method == "basic":
-            # 计算每个点与中心点的距离
-            distances = [np.linalg.norm(X[idx] - largest_cluster_samples_centroids) for idx in largest_cluster_samples_indices]
-            # 找到距离最小的点的索引
-            min_distance_index = np.argmin(distances)
+            largest_cluster_samples = X[largest_cluster_samples_indices]
+            nearest_local_index = findNearestSampleIndex(largest_cluster_samples, largest_cluster_samples_centroids, measurement)
             # 获取对应的全局索引
-            nearest_sample_index = largest_cluster_samples_indices[min_distance_index]
+            nearest_sample_index = largest_cluster_samples_indices[nearest_local_index]
             committee.teach(
                 X=X[[nearest_sample_index]],
                 y=targets[[nearest_sample_index]]
@@ -215,7 +230,7 @@ def rd(query_method, train_data, train_labels, n_members, n_initial, n_queries, 
 
     return idx_list, committee
 # =============================================================测试=====================================================
-def compare_test(train_data, test_data, train_labels, test_labels, n_times, init_idx):
+def compare_test(train_data, test_data, train_labels, test_labels, n_times, measurement, init_idx):
     # 导入测试数据
     lab_map = {
         'left_hand': 1,
@@ -231,11 +246,11 @@ def compare_test(train_data, test_data, train_labels, test_labels, n_times, init
     rand_score_list = []
 
     for i in tqdm(range(n_times)):
-        _, rd_qbc_committe = rd("qbc", train_data, train_labels, n_members=5, n_initial=12, n_queries=8)
+        _, rd_qbc_committe = rd("qbc", train_data, train_labels, n_members=5, n_initial=12, n_queries=8, measurement=measurement)
         rd_qbc_score = rd_qbc_committe.score(Y, targets_y)
         rd_qbc_score_list.append(rd_qbc_score)
 
-        _, rd_basic_committe = rd("basic", train_data, train_labels, n_members=5, n_initial=12, n_queries=8)
+        _, rd_basic_committe = rd("basic", train_data, train_labels, n_members=5, n_initial=12, n_queries=8, measurement=measurement)
         rd_basic_score = rd_basic_committe.score(Y, targets_y)
         rd_basic_score_list.append(rd_basic_score)
 
@@ -257,10 +272,11 @@ def compare_test(train_data, test_data, train_labels, test_labels, n_times, init
         qbc_mean = np.mean(qbc_score_list)
         random_mean = np.mean(rand_score_list)
 
+        print(measurement)
         print(rd_qbc_mean, rd_basic_mean, enhanced_qbc_mean, qbc_mean, random_mean)
     return rd_qbc_mean, rd_basic_mean, enhanced_qbc_mean, qbc_mean, random_mean
 
-def find_init_centroids(X, init_num):
+def find_init_centroids(X, init_num, measurement):
     '''
     返回k个cluster中，离质心最近的样本点的index
     '''
@@ -279,10 +295,11 @@ def find_init_centroids(X, init_num):
     nearest_indices = []
     for i, centroid in enumerate(centroids):
         cluster_samples = X[cluster_map[i]]
-        distances = np.linalg.norm(cluster_samples - centroid, axis=1)
-        nearest_index = np.argmin(distances)
-        nearest_indices.append(cluster_map[i][nearest_index])
-    return nearest_indices, kmeans
+        # distances = np.linalg.norm(cluster_samples - centroid, axis=1)
+        # nearest_index = np.argmin(distances)
+        nearest_local_index = findNearestSampleIndex(cluster_samples, centroid, measurement)
+        nearest_indices.append(cluster_map[i][nearest_local_index])
+    return nearest_indices
 
 
 def find_largest_unlabeled_cluster(cur_labels, labeled_indices):
@@ -333,11 +350,12 @@ def find_largest_unlabeled_cluster(cur_labels, labeled_indices):
 if __name__=='__main__':
     # ==========================================================载入数据==================================================
     dataset_name = "2a"
-    sub_index = 2
+    sub_index = 1
     test_id = 1
-    repeat_times = 1
+    repeat_times = 200
+    measurement = "cs" # "ed"欧氏距离；"cs"余弦相似度
 
-    for i in range(1, 10):
+    for i in range(1, 2):
         train_data, test_data, train_labels, test_labels = get_moabb_data(dataset_name, i, test_id)
 
         lab_map = {
@@ -352,18 +370,20 @@ if __name__=='__main__':
         Y = test_data.reshape(test_data.shape[0],-1)
         targets_y = np.array([lab_map[lab] for lab in test_labels])
 
-        init_id_list, _ = find_init_centroids(X, init_num=12)
-        rd_qbc_mean, rd_basic_mean, enhanced_qbc_mean, qbc_mean, random_mean = compare_test(train_data, test_data, train_labels, test_labels, repeat_times, init_idx=init_id_list)
+        init_id_list = find_init_centroids(X, init_num=12, measurement=measurement)
+        rd_qbc_mean, rd_basic_mean, enhanced_qbc_mean, qbc_mean, random_mean = compare_test(train_data, test_data, train_labels, test_labels, repeat_times, measurement, init_idx=init_id_list)
+        # rd_qbc_mean, rd_basic_mean, enhanced_qbc_mean, qbc_mean, random_mean = compare_test(train_data, test_data, train_labels, test_labels, repeat_times, "cs", init_idx=init_id_list)
 
-        with open(f"log/active_learn_log", 'a',  encoding='utf-8') as file:
-            file.write(f"重复{repeat_times}次 ")
-            file.write(f"--- 被试{i} ---\n")
-            file.write(f"{rd_qbc_mean} ")
-            file.write(f"{rd_basic_mean} ")
-            file.write(f"{enhanced_qbc_mean} ")
-            file.write(f"{qbc_mean} ")
-            file.write(f"{random_mean} ")
-            file.write("\n")  # 添加换行，便于区分记录
+
+        # with open(f"log/active_learn_log", 'a',  encoding='utf-8') as file:
+        #     file.write(f"重复{repeat_times}次 ")
+        #     file.write(f"--- 被试{i} ---\n")
+        #     file.write(f"{rd_qbc_mean} ")
+        #     file.write(f"{rd_basic_mean} ")
+        #     file.write(f"{enhanced_qbc_mean} ")
+        #     file.write(f"{qbc_mean} ")
+        #     file.write(f"{random_mean} ")
+        #     file.write("\n")  # 添加换行，便于区分记录
         
 
 # =============================================================画图=====================================================
