@@ -122,7 +122,7 @@ def get_moabb_data(dataset_name, sub_index, testid):
             feat_map.append(X_csp_expanded)
         return np.concatenate(feat_map, axis=1)
 
-    feat_map = get_freq_spatial_feat(X, labels, csp) # num_trials, n_components * num_freq_bands 由于n_components < n_chans, 所以=n_chans
+    feat_map = get_freq_spatial_feat(X, labels, csp) # num_trials, num_freq_bands, n_components 由于n_components < n_chans, 所以=n_chans
     index = get_first_index(meta, column_index=1, target_value="1test") # number of training trials
     print(meta)
 

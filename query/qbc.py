@@ -18,14 +18,17 @@ from tqdm import tqdm
 from sklearn.cluster import KMeans
 
 def findIndex(X, v):
-    found_idx = None
-    for i in range(X.shape[0]):
-        if np.array_equal(X[i], v):  # 检查每个切片是否与 v 相同
-            found_idx = i
-            break
-    if found_idx is None:
+    # np.all() 检查每行是否与目标向量完全匹配
+    matches = np.all(X == v, axis=1)
+    # np.where() 返回匹配项的索引
+    matched_indices = np.where(matches)[0]
+    
+    # 检查是否找到了匹配项
+    if matched_indices.size > 0:
+        return matched_indices[0]  # 返回第一个匹配项的索引
+    else:
         print("未在X中找到匹配的向量v")
-    return found_idx
+        return None
 
 def qbc(train_data, train_labels, n_members, n_initial, n_queries, init_idx=None):
     # ==========================================================初始化数据==================================================
@@ -127,6 +130,90 @@ def rand_select(train_data, train_labels, n_members, n_initial):
     )
     return n_idx, committee
 
+
+def rd(query_method, train_data, train_labels, n_members, n_initial, n_queries, init_idx=None):
+    # ==========================================================初始化数据==================================================
+    train_data = np.array(train_data)
+    train_labels = np.array(train_labels)
+    X = train_data.reshape(train_data.shape[0],-1)
+    lab_map = {
+        'left_hand': 1,
+        'right_hand':2
+    }
+    targets = np.array([lab_map[lab] for lab in train_labels])
+    # ==========================================================初始化learner==================================================
+    # n_members = 5
+    learner_list = list()
+
+    # n_initial = 12
+    n_idx, kmeans = find_init_centroids(X, n_initial)
+
+    for member_idx in range(n_members):
+        # BootStrap 有放回的生成训练子集
+        train_idx = np.random.choice(n_idx, size=n_initial, replace=True)
+
+        X_train = X[train_idx]
+        y_train = targets[train_idx]
+
+        # initializing learner
+        learner = ActiveLearner(
+            estimator=RandomForestClassifier(),
+            X_training=X_train, y_training=y_train
+        )
+        learner_list.append(learner)
+
+    # assembling the committee
+    committee = Committee(
+        learner_list=learner_list,
+        query_strategy=consensus_entropy_sampling, # vote_entropy_sampling max_disagreement_sampling, consensus_entropy_sampling
+    )
+
+    # =============================================================Query=====================================================
+    idx_list = [] # 要query的sample list
+    labeled_indices = deepcopy(n_idx) # 已经标注的sample list
+    # n_queries = 8
+    for i in range(n_queries):
+        cur_kmeans = KMeans(n_initial+i+1)
+        cur_kmeans.fit(X)
+
+        # 获取初始质心
+        cur_centroids = cur_kmeans.cluster_centers_
+        # 为每个数据点分配聚类标签
+        cur_labels = cur_kmeans.labels_
+        labeled_indices = list(set(labeled_indices + idx_list))
+
+        # We then identify the largest cluster that does not contain any labeled sample as the current most representative cluster
+        largest_cluster, max_size = find_largest_unlabeled_cluster(cur_labels, labeled_indices)
+        # largest_unlabeled_cluster下，所有样本的indices
+        largest_cluster_samples_centroids = cur_centroids[largest_cluster]
+        largest_cluster_samples_indices = [index for index, value in enumerate(cur_labels) if value == largest_cluster]
+
+        # Basic: select the sample closest to its centroid for labeling
+        if query_method == "basic":
+            # 计算每个点与中心点的距离
+            distances = [np.linalg.norm(X[idx] - largest_cluster_samples_centroids) for idx in largest_cluster_samples_indices]
+            # 找到距离最小的点的索引
+            min_distance_index = np.argmin(distances)
+            # 获取对应的全局索引
+            nearest_sample_index = largest_cluster_samples_indices[min_distance_index]
+            committee.teach(
+                X=X[[nearest_sample_index]],
+                y=targets[[nearest_sample_index]]
+            )
+            idx_list.append(nearest_sample_index)
+
+        # QBC: Use QBC to select a sample from the cluster for labeling
+        elif query_method == "qbc":
+            new_pool = X[largest_cluster_samples_indices]
+            query_idx, query_instance = committee.query(new_pool)
+            gloabl_idx = findIndex(X, query_instance[0])
+            committee.teach(
+                X=X[[gloabl_idx]],
+                y=targets[[gloabl_idx]]
+            )
+            idx_list.append(gloabl_idx)
+
+    return idx_list, committee
 # =============================================================测试=====================================================
 def compare_test(train_data, test_data, train_labels, test_labels, n_times, init_idx):
     # 导入测试数据
@@ -138,13 +225,23 @@ def compare_test(train_data, test_data, train_labels, test_labels, n_times, init
     targets_y = np.array([lab_map[lab] for lab in test_labels])
 
     rd_qbc_score_list = []
+    rd_basic_score_list = []
+    enhanced_qbc_score_list = []
     qbc_score_list = []
     rand_score_list = []
 
     for i in tqdm(range(n_times)):
-        _, rd_qbc_committe = qbc(train_data, train_labels, n_members=5, n_initial=12, n_queries=8, init_idx=init_idx)
+        _, rd_qbc_committe = rd("qbc", train_data, train_labels, n_members=5, n_initial=12, n_queries=8)
         rd_qbc_score = rd_qbc_committe.score(Y, targets_y)
         rd_qbc_score_list.append(rd_qbc_score)
+
+        _, rd_basic_committe = rd("basic", train_data, train_labels, n_members=5, n_initial=12, n_queries=8)
+        rd_basic_score = rd_basic_committe.score(Y, targets_y)
+        rd_basic_score_list.append(rd_basic_score)
+
+        _, enhanced_qbc_committe = qbc(train_data, train_labels, n_members=5, n_initial=12, n_queries=8, init_idx=init_idx)
+        enhanced_qbc_score = enhanced_qbc_committe.score(Y, targets_y)
+        enhanced_qbc_score_list.append(enhanced_qbc_score)
     
         _, qbc_committe = qbc(train_data, train_labels, n_members=5, n_initial=12, n_queries=8)
         qbc_score = qbc_committe.score(Y, targets_y)
@@ -155,9 +252,13 @@ def compare_test(train_data, test_data, train_labels, test_labels, n_times, init
         rand_score_list.append(rand_score)
 
         rd_qbc_mean = np.mean(rd_qbc_score_list)
+        rd_basic_mean = np.mean(rd_basic_score_list)
+        enhanced_qbc_mean = np.mean(enhanced_qbc_score_list)
         qbc_mean = np.mean(qbc_score_list)
         random_mean = np.mean(rand_score_list)
-        print(rd_qbc_mean, qbc_mean, random_mean)
+
+        print(rd_qbc_mean, rd_basic_mean, enhanced_qbc_mean, qbc_mean, random_mean)
+    return rd_qbc_mean, rd_basic_mean, enhanced_qbc_mean, qbc_mean, random_mean
 
 def find_init_centroids(X, init_num):
     '''
@@ -170,50 +271,100 @@ def find_init_centroids(X, init_num):
     # 为每个数据点分配聚类标签
     labels = kmeans.labels_
 
+    cluster_map = {i : [] for i in range(centroids.shape[0])}
+    for idx, label in enumerate(labels):
+        cluster_map[label].append(idx)
+    
     # 找到每个聚类中心最近的样本点
-    nearest_points = []
-    for i in range(centroids.shape[0]):
-        # 计算当前聚类中所有点到聚类中心的距离
-        distances = np.linalg.norm(X[labels == i] - centroids[i], axis=1)
-        # 找到最小距离的索引
-        min_index = np.argmin(distances)
-        # 使用该索引获取最近的点
-        nearest_point = X[labels == i][min_index]
-        nearest_points.append(nearest_point)
+    nearest_indices = []
+    for i, centroid in enumerate(centroids):
+        cluster_samples = X[cluster_map[i]]
+        distances = np.linalg.norm(cluster_samples - centroid, axis=1)
+        nearest_index = np.argmin(distances)
+        nearest_indices.append(cluster_map[i][nearest_index])
+    return nearest_indices, kmeans
 
-    init_id_list = []
-    for sample in nearest_points:
-        gloabl_idx = findIndex(X, sample)
-        init_id_list.append(gloabl_idx)
-    print(init_id_list)
-    return init_id_list
+
+def find_largest_unlabeled_cluster(cur_labels, labeled_indices):
+    """Find_largest_unlabeled_cluster
+
+    Args:
+        cur_labels (ndArray: (1, N)): cluster labels for all N trainning samples
+        labeled_indices (list of int): labeled samples indices
+
+    Returns:
+        largest_cluster, max_size
+
+    """
+    # 创建一个集合，用于存储包含标记样本的簇
+    labeled_clusters = set()
+    
+    # 遍历标记样本索引，识别这些样本所在的簇
+    for idx in labeled_indices:
+        labeled_clusters.add(cur_labels[idx])
+
+    # cur_labels = np.array(cur_labels)
+    # labeled_clusters = np.unique(cur_labels[labeled_indices])
+    
+    # 创建一个字典来统计不包含标记样本的簇的大小
+    cluster_sizes = {}
+    
+    # 遍历所有样本的簇标签
+    for i, label in enumerate(cur_labels):
+        # 如果这个簇不包含任何标记样本，则计数
+        if label not in labeled_clusters:
+            if label in cluster_sizes:
+                cluster_sizes[label] += 1
+            else:
+                cluster_sizes[label] = 1
+    
+    # 找出最大的簇
+    largest_cluster = None
+    max_size = -1
+    for cluster, size in cluster_sizes.items():
+        if size > max_size:
+            max_size = size
+            largest_cluster = cluster
+    
+    # 返回最大的簇的标签和大小
+    return largest_cluster, max_size
 
     
 if __name__=='__main__':
     # ==========================================================载入数据==================================================
     dataset_name = "2a"
-    sub_index = 5
+    sub_index = 2
     test_id = 1
     repeat_times = 1
 
-    train_data, test_data, train_labels, test_labels = get_moabb_data(dataset_name, sub_index, test_id)
+    for i in range(1, 10):
+        train_data, test_data, train_labels, test_labels = get_moabb_data(dataset_name, i, test_id)
 
-    lab_map = {
-        'left_hand': 1,
-        'right_hand':2
-    }
-    train_data = np.array(train_data)
-    X = train_data.reshape(train_data.shape[0],-1)
-    targets = np.array([lab_map[lab] for lab in train_labels])
+        lab_map = {
+            'left_hand': 1,
+            'right_hand':2
+        }
+        train_data = np.array(train_data)
+        X = train_data.reshape(train_data.shape[0],-1)
+        targets = np.array([lab_map[lab] for lab in train_labels])
 
-    test_data = np.array(test_data)
-    Y = test_data.reshape(test_data.shape[0],-1)
-    targets_y = np.array([lab_map[lab] for lab in test_labels])
+        test_data = np.array(test_data)
+        Y = test_data.reshape(test_data.shape[0],-1)
+        targets_y = np.array([lab_map[lab] for lab in test_labels])
 
-    init_id_list = find_init_centroids(X, init_num=12)
+        init_id_list, _ = find_init_centroids(X, init_num=12)
+        rd_qbc_mean, rd_basic_mean, enhanced_qbc_mean, qbc_mean, random_mean = compare_test(train_data, test_data, train_labels, test_labels, repeat_times, init_idx=init_id_list)
 
-    compare_test(train_data, test_data, train_labels, test_labels, repeat_times, init_idx=init_id_list)
-
+        with open(f"log/active_learn_log", 'a',  encoding='utf-8') as file:
+            file.write(f"重复{repeat_times}次 ")
+            file.write(f"--- 被试{i} ---\n")
+            file.write(f"{rd_qbc_mean} ")
+            file.write(f"{rd_basic_mean} ")
+            file.write(f"{enhanced_qbc_mean} ")
+            file.write(f"{qbc_mean} ")
+            file.write(f"{random_mean} ")
+            file.write("\n")  # 添加换行，便于区分记录
+        
 
 # =============================================================画图=====================================================
 
