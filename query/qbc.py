@@ -9,7 +9,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.manifold import TSNE
 from active_prompt.load.load_moabb import get_moabb_data
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from modAL.models import ActiveLearner, Committee
 from modAL.disagreement import vote_entropy_sampling, max_disagreement_sampling, consensus_entropy_sampling
 from scipy.stats import entropy
@@ -47,7 +47,7 @@ def findNearestSampleIndex(cluster_samples, cluster_centroids, measurement):
     return nearest_local_index
 
 
-def qbc(train_data, train_labels, n_members, n_initial, n_queries, init_idx=None):
+def qbc(train_data, train_labels, n_members, n_initial, n_queries, estimator, init_idx=None):
     # ==========================================================初始化数据==================================================
     train_data = np.array(train_data)
     train_labels = np.array(train_labels)
@@ -74,7 +74,7 @@ def qbc(train_data, train_labels, n_members, n_initial, n_queries, init_idx=None
 
         # initializing learner
         learner = ActiveLearner(
-            estimator=RandomForestClassifier(),
+            estimator=estimator(),
             X_training=X_train, y_training=y_train
         )
         learner_list.append(learner)
@@ -104,7 +104,7 @@ def qbc(train_data, train_labels, n_members, n_initial, n_queries, init_idx=None
         y_pool = np.delete(y_pool, query_idx)
     return idx_list, committee
 
-def rand_select(train_data, train_labels, n_members, n_initial):
+def rand_select(train_data, train_labels, n_members, n_initial, estimator):
     # ==========================================================初始化数据==================================================
     train_data = np.array(train_data)
     train_labels = np.array(train_labels)
@@ -131,7 +131,7 @@ def rand_select(train_data, train_labels, n_members, n_initial):
 
         # initializing learner
         learner = ActiveLearner(
-            estimator=RandomForestClassifier(),
+            estimator=estimator(),
             X_training=X_train, y_training=y_train
         )
         learner_list.append(learner)
@@ -148,7 +148,7 @@ def rand_select(train_data, train_labels, n_members, n_initial):
     return n_idx, committee
 
 
-def rd(query_method, train_data, train_labels, n_members, n_initial, n_queries, measurement, init_idx=None):
+def rd(query_method, train_data, train_labels, n_members, n_initial, n_queries, measurement, estimator, init_idx=None):
     # ==========================================================初始化数据==================================================
     train_data = np.array(train_data)
     train_labels = np.array(train_labels)
@@ -174,7 +174,7 @@ def rd(query_method, train_data, train_labels, n_members, n_initial, n_queries, 
 
         # initializing learner
         learner = ActiveLearner(
-            estimator=RandomForestClassifier(),
+            estimator=estimator(),
             X_training=X_train, y_training=y_train
         )
         learner_list.append(learner)
@@ -230,7 +230,7 @@ def rd(query_method, train_data, train_labels, n_members, n_initial, n_queries, 
 
     return idx_list, committee
 # =============================================================测试=====================================================
-def compare_test(train_data, test_data, train_labels, test_labels, n_times, measurement, init_idx):
+def compare_test(train_data, test_data, train_labels, test_labels, n_times, measurement, estimator, init_idx):
     # 导入测试数据
     lab_map = {
         'left_hand': 1,
@@ -246,23 +246,23 @@ def compare_test(train_data, test_data, train_labels, test_labels, n_times, meas
     rand_score_list = []
 
     for i in tqdm(range(n_times)):
-        _, rd_qbc_committe = rd("qbc", train_data, train_labels, n_members=5, n_initial=12, n_queries=8, measurement=measurement)
+        _, rd_qbc_committe = rd("qbc", train_data, train_labels, n_members=5, n_initial=12, n_queries=8, measurement=measurement, estimator=estimator)
         rd_qbc_score = rd_qbc_committe.score(Y, targets_y)
         rd_qbc_score_list.append(rd_qbc_score)
 
-        _, rd_basic_committe = rd("basic", train_data, train_labels, n_members=5, n_initial=12, n_queries=8, measurement=measurement)
+        _, rd_basic_committe = rd("basic", train_data, train_labels, n_members=5, n_initial=12, n_queries=8, measurement=measurement, estimator=estimator)
         rd_basic_score = rd_basic_committe.score(Y, targets_y)
         rd_basic_score_list.append(rd_basic_score)
 
-        _, enhanced_qbc_committe = qbc(train_data, train_labels, n_members=5, n_initial=12, n_queries=8, init_idx=init_idx)
+        _, enhanced_qbc_committe = qbc(train_data, train_labels, n_members=5, n_initial=12, n_queries=8, estimator=estimator, init_idx=init_idx)
         enhanced_qbc_score = enhanced_qbc_committe.score(Y, targets_y)
         enhanced_qbc_score_list.append(enhanced_qbc_score)
     
-        _, qbc_committe = qbc(train_data, train_labels, n_members=5, n_initial=12, n_queries=8)
+        _, qbc_committe = qbc(train_data, train_labels, n_members=5, n_initial=12, n_queries=8, estimator=estimator)
         qbc_score = qbc_committe.score(Y, targets_y)
         qbc_score_list.append(qbc_score)
 
-        _, rand_committe = rand_select(train_data, train_labels, n_members=5, n_initial=20)
+        _, rand_committe = rand_select(train_data, train_labels, n_members=5, n_initial=20, estimator=estimator)
         rand_score = rand_committe.score(Y, targets_y)
         rand_score_list.append(rand_score)
 
@@ -352,8 +352,9 @@ if __name__=='__main__':
     dataset_name = "2a"
     sub_index = 1
     test_id = 1
-    repeat_times = 200
+    repeat_times = 1
     measurement = "cs" # "ed"欧氏距离；"cs"余弦相似度
+    estimator = RandomForestClassifier
 
     for i in range(1, 2):
         train_data, test_data, train_labels, test_labels = get_moabb_data(dataset_name, i, test_id)
@@ -371,7 +372,7 @@ if __name__=='__main__':
         targets_y = np.array([lab_map[lab] for lab in test_labels])
 
         init_id_list = find_init_centroids(X, init_num=12, measurement=measurement)
-        rd_qbc_mean, rd_basic_mean, enhanced_qbc_mean, qbc_mean, random_mean = compare_test(train_data, test_data, train_labels, test_labels, repeat_times, measurement, init_idx=init_id_list)
+        rd_qbc_mean, rd_basic_mean, enhanced_qbc_mean, qbc_mean, random_mean = compare_test(train_data, test_data, train_labels, test_labels, repeat_times, measurement, estimator, init_idx=init_id_list)
         # rd_qbc_mean, rd_basic_mean, enhanced_qbc_mean, qbc_mean, random_mean = compare_test(train_data, test_data, train_labels, test_labels, repeat_times, "cs", init_idx=init_id_list)
 
 
