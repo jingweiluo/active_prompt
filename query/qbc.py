@@ -46,6 +46,193 @@ def findNearestSampleIndex(cluster_samples, cluster_centroids, measurement):
         raise ValueError("Unsupported measurement type. Use 'ed' for Euclidean distance or 'cs' for cosine similarity.")
     return nearest_local_index
 
+def find_init_centroids(X, init_num, measurement):
+    '''
+    返回k个cluster中，离质心最近的样本点的index
+    '''
+    kmeans = KMeans(init_num)
+    kmeans.fit(X)
+    # 获取初始质心
+    centroids = kmeans.cluster_centers_
+    # 为每个数据点分配聚类标签
+    labels = kmeans.labels_
+
+    cluster_map = {i : [] for i in range(centroids.shape[0])}
+    for idx, label in enumerate(labels):
+        cluster_map[label].append(idx)
+    
+    # 找到每个聚类中心最近的样本点
+    nearest_indices = []
+    for i, centroid in enumerate(centroids):
+        cluster_samples = X[cluster_map[i]]
+        # distances = np.linalg.norm(cluster_samples - centroid, axis=1)
+        # nearest_index = np.argmin(distances)
+        nearest_local_index = findNearestSampleIndex(cluster_samples, centroid, measurement)
+        nearest_indices.append(cluster_map[i][nearest_local_index])
+    return nearest_indices, kmeans
+
+def find_largest_unlabeled_cluster(cur_labels, labeled_indices):
+    """Find_largest_unlabeled_cluster
+
+    Args:
+        cur_labels (ndArray: (1, N)): cluster labels for all N trainning samples
+        labeled_indices (list of int): labeled samples indices
+
+    Returns:
+        largest_cluster, max_size
+
+    """
+    # 创建一个集合，用于存储包含标记样本的簇
+    labeled_clusters = set()
+    
+    # 遍历标记样本索引，识别这些样本所在的簇
+    for idx in labeled_indices:
+        labeled_clusters.add(cur_labels[idx])
+
+    # cur_labels = np.array(cur_labels)
+    # labeled_clusters = np.unique(cur_labels[labeled_indices])
+    
+    # 创建一个字典来统计不包含标记样本的簇的大小
+    cluster_sizes = {}
+    
+    # 遍历所有样本的簇标签
+    for i, label in enumerate(cur_labels):
+        # 如果这个簇不包含任何标记样本，则计数
+        if label not in labeled_clusters:
+            if label in cluster_sizes:
+                cluster_sizes[label] += 1
+            else:
+                cluster_sizes[label] = 1
+    
+    # 找出最大的簇
+    largest_cluster = None
+    max_size = -1
+    for cluster, size in cluster_sizes.items():
+        if size > max_size:
+            max_size = size
+            largest_cluster = cluster
+    
+    # 返回最大的簇的标签和大小
+    return largest_cluster, max_size
+
+def find_centroids(train_data, train_labels, num_demos, measurement):
+    train_data = np.array(train_data)
+    train_labels = np.array(train_labels)
+    X = train_data.reshape(train_data.shape[0],-1)
+
+    nearest_indices, kmeans = find_init_centroids(X, num_demos, measurement)
+    return nearest_indices
+
+
+def kate(train_data, train_labels, predict_sample, num_demos, measurement):
+    """
+    先分成N个cluster，然后找到每个cluster中离待预测样本最近的点
+    """
+    # ==========================================================初始化数据==================================================
+    train_data = np.array(train_data)
+    train_labels = np.array(train_labels)
+    X = train_data.reshape(train_data.shape[0],-1)
+    lab_map = {
+        'left_hand': 1,
+        'right_hand':2
+    }
+    y = np.array([lab_map[lab] for lab in train_labels])
+
+    # ==========================================================初始化数据==================================================
+    kmeans = KMeans(num_demos)
+    kmeans.fit(X)
+    # 获取初始质心
+    centroids = kmeans.cluster_centers_
+    # 为每个数据点分配聚类标签
+    labels = kmeans.labels_
+    # 获取每个cluster包含的点的信息
+    cluster_map = {i : [] for i in range(centroids.shape[0])}
+    for idx, label in enumerate(labels):
+        cluster_map[label].append(idx)
+
+    # 找到每个聚类中心最近的样本点
+    nearest_indices = []
+    for i, centroid in enumerate(centroids):
+        cluster_samples = X[cluster_map[i]]
+        # distances = np.linalg.norm(cluster_samples - centroid, axis=1)
+        # nearest_index = np.argmin(distances)
+        nearest_local_index = findNearestSampleIndex(cluster_samples, predict_sample, measurement)
+        nearest_indices.append(cluster_map[i][nearest_local_index])
+    return nearest_indices
+
+def kate_qbc(train_data, train_labels, predict_sample, num_demos, measurement, n_members=5, estimator=RandomForestClassifier):
+    # 分成k个cluster，从每个cluster中找到一个距离最近的，一个qbc选择的，一共2k个
+    # ==========================================================初始化数据==================================================
+    train_data = np.array(train_data)
+    train_labels = np.array(train_labels)
+    X = train_data.reshape(train_data.shape[0],-1)
+    lab_map = {
+        'left_hand': 1,
+        'right_hand':2
+    }
+    targets = np.array([lab_map[lab] for lab in train_labels])
+    X_pool = deepcopy(X)
+    y_pool = deepcopy(targets)
+
+    # ==========================================================初始化数据==================================================
+    kmeans = KMeans(num_demos // 2)
+    kmeans.fit(X)
+    # 获取初始质心
+    centroids = kmeans.cluster_centers_
+    # 为每个数据点分配聚类标签
+    labels = kmeans.labels_
+    # 获取每个cluster包含的点的信息
+    cluster_map = {i : [] for i in range(centroids.shape[0])}
+    for idx, label in enumerate(labels):
+        cluster_map[label].append(idx)
+
+    # 找到每个聚类中心最近的样本点
+    nearest_indices = []
+    for i, centroid in enumerate(centroids):
+        cluster_samples = X[cluster_map[i]]
+        nearest_local_index = findNearestSampleIndex(cluster_samples, predict_sample, measurement)
+        nearest_indices.append(cluster_map[i][nearest_local_index])
+    # ==========================================================初始化learner==================================================
+    # 使用离predict最近的（而不是离centroid最近的）作为初始学习样本
+    learner_list = list()
+
+    for member_idx in range(n_members):
+        # BootStrap 有放回的生成训练子集
+        train_idx = np.random.choice(nearest_indices, size=num_demos // 2, replace=True)
+
+        X_train = X[train_idx]
+        y_train = targets[train_idx]
+
+        # initializing learner
+        learner = ActiveLearner(
+            estimator=estimator(),
+            X_training=X_train, y_training=y_train
+        )
+        learner_list.append(learner)
+
+    # assembling the committee
+    committee = Committee(
+        learner_list=learner_list,
+        query_strategy=consensus_entropy_sampling, # vote_entropy_sampling max_disagreement_sampling, consensus_entropy_sampling
+    )
+
+    # =============================================================Query=====================================================
+    labeled_indices = deepcopy(nearest_indices) # 已经标注的sample list
+
+    for i, centroid in enumerate(centroids):
+        # 找到cluster中除了最近点以外点的indices
+        updated_indices = np.where(cluster_map[i] != nearest_indices[i])[0]
+        # 使用更新后的索引来选择X中的样本
+        new_pool = X[updated_indices]
+
+        query_idx, query_instance = committee.query(new_pool)
+        gloabl_idx = findIndex(X, query_instance[0])
+        committee.teach(
+            X=X[[gloabl_idx]],
+            y=targets[[gloabl_idx]]
+        )
+        labeled_indices.append(gloabl_idx)
+    return labeled_indices, committee
 
 def qbc(train_data, train_labels, n_members, n_initial, n_queries, estimator=RandomForestClassifier, init_idx=None, is_return_all=False):
     # ==========================================================初始化数据==================================================
@@ -149,7 +336,6 @@ def rand_select(train_data, train_labels, n_members, n_initial, estimator):
         query_strategy=consensus_entropy_sampling, # vote_entropy_sampling max_disagreement_sampling, consensus_entropy_sampling
     )
     return n_idx, committee
-
 
 def rd(query_method, train_data, train_labels, n_members, n_initial, n_queries, measurement, estimator, init_idx=None):
     # ==========================================================初始化数据==================================================
@@ -279,77 +465,6 @@ def compare_test(train_data, test_data, train_labels, test_labels, n_times, meas
         print(rd_qbc_mean, rd_basic_mean, enhanced_qbc_mean, qbc_mean, random_mean)
     return rd_qbc_mean, rd_basic_mean, enhanced_qbc_mean, qbc_mean, random_mean
 
-def find_init_centroids(X, init_num, measurement):
-    '''
-    返回k个cluster中，离质心最近的样本点的index
-    '''
-    kmeans = KMeans(init_num)
-    kmeans.fit(X)
-    # 获取初始质心
-    centroids = kmeans.cluster_centers_
-    # 为每个数据点分配聚类标签
-    labels = kmeans.labels_
-
-    cluster_map = {i : [] for i in range(centroids.shape[0])}
-    for idx, label in enumerate(labels):
-        cluster_map[label].append(idx)
-    
-    # 找到每个聚类中心最近的样本点
-    nearest_indices = []
-    for i, centroid in enumerate(centroids):
-        cluster_samples = X[cluster_map[i]]
-        # distances = np.linalg.norm(cluster_samples - centroid, axis=1)
-        # nearest_index = np.argmin(distances)
-        nearest_local_index = findNearestSampleIndex(cluster_samples, centroid, measurement)
-        nearest_indices.append(cluster_map[i][nearest_local_index])
-    return nearest_indices
-
-
-def find_largest_unlabeled_cluster(cur_labels, labeled_indices):
-    """Find_largest_unlabeled_cluster
-
-    Args:
-        cur_labels (ndArray: (1, N)): cluster labels for all N trainning samples
-        labeled_indices (list of int): labeled samples indices
-
-    Returns:
-        largest_cluster, max_size
-
-    """
-    # 创建一个集合，用于存储包含标记样本的簇
-    labeled_clusters = set()
-    
-    # 遍历标记样本索引，识别这些样本所在的簇
-    for idx in labeled_indices:
-        labeled_clusters.add(cur_labels[idx])
-
-    # cur_labels = np.array(cur_labels)
-    # labeled_clusters = np.unique(cur_labels[labeled_indices])
-    
-    # 创建一个字典来统计不包含标记样本的簇的大小
-    cluster_sizes = {}
-    
-    # 遍历所有样本的簇标签
-    for i, label in enumerate(cur_labels):
-        # 如果这个簇不包含任何标记样本，则计数
-        if label not in labeled_clusters:
-            if label in cluster_sizes:
-                cluster_sizes[label] += 1
-            else:
-                cluster_sizes[label] = 1
-    
-    # 找出最大的簇
-    largest_cluster = None
-    max_size = -1
-    for cluster, size in cluster_sizes.items():
-        if size > max_size:
-            max_size = size
-            largest_cluster = cluster
-    
-    # 返回最大的簇的标签和大小
-    return largest_cluster, max_size
-
-    
 if __name__=='__main__':
     # ==========================================================载入数据==================================================
     dataset_name = "2a"

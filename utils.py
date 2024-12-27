@@ -103,3 +103,18 @@ def collect_y_pred(demo_data, demo_labels, predict_data, max_predict_num, model_
         if y_pred_sub:  # 确保提取的结果不为空
             y_pred.extend(y_pred_sub)
     return y_pred
+
+def collect_y_pred_single(demo_data, demo_labels, predict_data, model_type, is_model_online):
+    """
+    将多次返回的lst汇总为一个lst
+    demo_data: 用来做演示示例的4个trial,lst of ndArray
+    demo_labels: 4个trial的label, lst
+    predict_data: 待遇测的trial lst
+    max_predict_num: 单次最多预测条数
+    """
+    ask_llm = ask_llm_online if is_model_online else ask_llm_offline
+    prompt(demo_data, demo_labels, predict_data)
+    answer = ask_llm(model_type)
+    y_pred_sub = extract_array_from_string(answer)
+    if y_pred_sub:  # 确保提取的结果不为空
+        return y_pred_sub
