@@ -46,6 +46,39 @@ def findNearestSampleIndex(cluster_samples, cluster_centroids, measurement):
         raise ValueError("Unsupported measurement type. Use 'ed' for Euclidean distance or 'cs' for cosine similarity.")
     return nearest_local_index
 
+def findNearestKSampleIndices(cluster_samples, cluster_centroids, measurement, k=1):
+    """
+    返回在聚类中距离中心最近的k个样本的local indices。
+    
+    参数:
+    cluster_samples : array-like, shape (n_samples, n_features)
+        聚类中的样本点。
+    cluster_centroids : array-like, shape (n_features,)
+        聚类的中心点。
+    measurement : str
+        用于度量距离的类型，可以是"ed"（欧几里得距离）或"cs"（余弦相似度）。
+    k : int
+        返回的最近样本点的数量。
+        
+    返回:
+    nearest_k_indices : array, shape (k,)
+        最近的k个样本点的indices。
+    """
+    if measurement == "ed":
+        distances = np.linalg.norm(cluster_samples - cluster_centroids, axis=1)
+        nearest_k_indices = np.argsort(distances)[:k]
+    elif measurement == "cs":
+        # 计算余弦相似度
+        dot_products = np.dot(cluster_samples, cluster_centroids)
+        norms_samples = np.linalg.norm(cluster_samples, axis=1)
+        norm_centroid = np.linalg.norm(cluster_centroids)
+        cosine_similarities = dot_products / (norms_samples * norm_centroid)
+        nearest_k_indices = np.argsort(cosine_similarities)[-k:][::-1]
+    else:
+        raise ValueError("Unsupported measurement type. Use 'ed' for Euclidean distance or 'cs' for cosine similarity.")
+    
+    return nearest_k_indices
+
 def find_init_centroids(X, init_num, measurement):
     '''
     返回k个cluster中，离质心最近的样本点的index
@@ -123,6 +156,22 @@ def find_centroids(train_data, train_labels, num_demos, measurement):
     nearest_indices, kmeans = find_init_centroids(X, num_demos, measurement)
     return nearest_indices
 
+def kate_basic(train_data, train_labels, predict_sample, num_demos, measurement):
+    """
+    选择离predict最近的num_demos个示例
+    """
+    # ==========================================================初始化数据==================================================
+    train_data = np.array(train_data)
+    train_labels = np.array(train_labels)
+    X = train_data.reshape(train_data.shape[0],-1)
+    lab_map = {
+        'left_hand': 1,
+        'right_hand':2
+    }
+    y = np.array([lab_map[lab] for lab in train_labels])
+
+    nearest_indices = findNearestKSampleIndices(X, predict_sample, measurement, k=num_demos)
+    return nearest_indices
 
 def kate(train_data, train_labels, predict_sample, num_demos, measurement):
     """
