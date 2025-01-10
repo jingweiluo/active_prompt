@@ -24,7 +24,7 @@ def get_active_learned_samples_indices(train_data, num_demos):
 def ndToList(array):
     return [array[i] for i in range(array.shape[0])]
 
-def static_demo_predict(train_data, test_data, train_labels, test_labels, test_mode, num_demos, sub_index, max_predict_num, model_type, way_select_demo, is_model_online):
+def static_demo_predict(train_data, test_data, train_labels, test_labels, test_mode, num_demos, sub_index, max_predict_num, model_type, way_select_demo, is_model_online, test_num):
     if way_select_demo == "random":
         selected_indices = random.sample(list(range(len(train_labels))), num_demos)
     elif way_select_demo == "basic_rd":
@@ -44,8 +44,13 @@ def static_demo_predict(train_data, test_data, train_labels, test_labels, test_m
         y_true = sub_test_labels
         y_pred = collect_y_pred(demo_data, demo_labels, sub_test_data, max_predict_num, model_type, is_model_online)
     elif test_mode == 'outer_test':
-        y_true = test_labels
-        y_pred = collect_y_pred(demo_data, demo_labels, test_data, max_predict_num, model_type, is_model_online)
+        if test_num:
+            y_true = test_labels[:test_num]
+            y_pred = collect_y_pred(demo_data, demo_labels, test_data[:test_num], max_predict_num, model_type, is_model_online)
+        else:
+            y_true = test_labels
+            y_pred = collect_y_pred(demo_data, demo_labels, test_data, max_predict_num, model_type, is_model_online)
+    print(y_true)
     accuracy, precision, recall, f1 = get_accuracy_and_log(y_true, y_pred, test_mode, num_demos, sub_index, max_predict_num, model_type, way_select_demo, selected_indices, selected_labels)
     return accuracy, precision, recall, f1
 
@@ -85,7 +90,8 @@ if __name__ == '__main__':
     test_id = 1 # 2a中只有0-1两个session，2b中有0-4五个session
     is_model_online = True # 谨慎开启，设置为online时要提前计算费用
     measurement = 'ed' # 衡量向量距离的方式，ed, cs
-    repeat_times = 30
+    repeat_times = 1
+    test_num = 10
 
     train_data, test_data, train_labels, test_labels = get_moabb_data(dataset_name, sub_index, test_id) # 2b数据集，sub_index, test_id
     train_data = ndToList(train_data)
@@ -103,32 +109,29 @@ if __name__ == '__main__':
 
 
         for i in tqdm(range(n_times)):
-            accuracy5, precision5, recall5, f15 = dynamic_demo_predict(train_data, test_data, train_labels, test_labels, test_mode, num_demos, sub_index, max_predict_num, model_type, "find_centroids", is_model_online, measurement)
-            accuracy6, precision6, recall6, f16 = dynamic_demo_predict(train_data, test_data, train_labels, test_labels, test_mode, num_demos, sub_index, max_predict_num, model_type, "kate_qbc", is_model_online, measurement)
-            # accuracy, precision, recall, f1 = static_demo_predict(train_data, test_data, train_labels, test_labels, test_mode, num_demos, sub_index, max_predict_num, model_type, 'qbc', is_model_online)
-            accuracy2, precision2, recall2, f12 = static_demo_predict(train_data, test_data, train_labels, test_labels, test_mode, num_demos, sub_index, max_predict_num, model_type, 'random', is_model_online)
+            accuracy, precision, recall, f1 = static_demo_predict(train_data, test_data, train_labels, test_labels, test_mode, num_demos, sub_index, max_predict_num, model_type, 'qbc', is_model_online, test_num)
+            accuracy2, precision2, recall2, f12 = static_demo_predict(train_data, test_data, train_labels, test_labels, test_mode, num_demos, sub_index, max_predict_num, model_type, 'random', is_model_online, test_num)
             # accuracy3, precision3, recall3, f13 = static_demo_predict(train_data, test_data, train_labels, test_labels, test_mode, num_demos, sub_index, max_predict_num, model_type, 'qbc_return_all', is_model_online)
-            accuracy4, precision4, recall4, f14 = dynamic_demo_predict(train_data, test_data, train_labels, test_labels, test_mode, num_demos, sub_index, max_predict_num, model_type, "kate", is_model_online, measurement)
+            # accuracy4, precision4, recall4, f14 = dynamic_demo_predict(train_data, test_data, train_labels, test_labels, test_mode, num_demos, sub_index, max_predict_num, model_type, "kate", is_model_online, measurement)
+            # accuracy5, precision5, recall5, f15 = dynamic_demo_predict(train_data, test_data, train_labels, test_labels, test_mode, num_demos, sub_index, max_predict_num, model_type, "find_centroids", is_model_online, measurement)
+            # accuracy6, precision6, recall6, f16 = dynamic_demo_predict(train_data, test_data, train_labels, test_labels, test_mode, num_demos, sub_index, max_predict_num, model_type, "kate_qbc", is_model_online, measurement)
 
-
-
-            # qbc_score_list.append(accuracy)
+            qbc_score_list.append(accuracy)
             rand_score_list.append(accuracy2)
             # qbc_return_all_score_list.append(accuracy3)
-            kate_score_list.append(accuracy4)
-            centroid_score_list.append(accuracy5)
-            kate_qbc_score_list.append(accuracy6)
+            # kate_score_list.append(accuracy4)
+            # centroid_score_list.append(accuracy5)
+            # kate_qbc_score_list.append(accuracy6)
 
 
-            # qbc_mean = np.mean(qbc_score_list)
+            qbc_mean = np.mean(qbc_score_list)
             random_mean = np.mean(rand_score_list)
             # qbc_return_all_mean = np.mean(qbc_return_all_score_list)
-            kate_mean = np.mean(kate_score_list)
-            centroid_mean = np.mean(centroid_score_list)
-            kate_qbc_mean = np.mean(kate_qbc_score_list)
+            # kate_mean = np.mean(kate_score_list)
+            # centroid_mean = np.mean(centroid_score_list)
+            # kate_qbc_mean = np.mean(kate_qbc_score_list)
 
-            # print(qbc_mean, random_mean, qbc_return_all_mean, kate_mean)
-            print(random_mean, kate_mean, centroid_mean, kate_qbc_mean)
+            print(random_mean, qbc_mean)
     
     compare_test(repeat_times)
 
