@@ -94,7 +94,6 @@ def get_first_index(dataframe, column_index, target_value):
 # - downloading its files from some online source (e.g. Zenodo)
 # - importing the data from the files in whatever extension they might be
 #   (like .mat, .gdf, etc.) and instantiate a Raw object from the MNE package
-
 def get_moabb_data(dataset_name, sub_index, testid):
     """
     获取MI训练及测试数据
@@ -110,6 +109,7 @@ def get_moabb_data(dataset_name, sub_index, testid):
     paradigm = LeftRightImagery()
     X, labels, meta = paradigm.get_data(dataset=dataset, subjects=[sub_index])
 
+    #============================这一部分是提取CSP特征==========================================
     n_components = 8  # 选择要分解的主成分数量
     csp = CSP(n_components=n_components, norm_trace=False)
 
@@ -126,6 +126,129 @@ def get_moabb_data(dataset_name, sub_index, testid):
     index = get_first_index(meta, column_index=1, target_value="1test") # number of training trials
     print(meta)
 
+    # #============================这一部分是将raw-EEG投影到image-EEG的共空间==========================================
+    # import os
+    # import torch
+    # import torch.nn as nn
+    # import torch.nn.functional as F
+    # from torch import Tensor
+    # from einops.layers.torch import Rearrange
+    # X = X[:,:,250:500] # (288, 22, 1000)
+
+    # chan_order = ['Fp1', 'Fp2', 'AF7', 'AF3', 'AFz', 'AF4', 'AF8', 'F7', 'F5', 'F3',
+	# 			  'F1', 'F2', 'F4', 'F6', 'F8', 'FT9', 'FT7', 'FC5', 'FC3', 'FC1', 
+	# 			  'FCz', 'FC2', 'FC4', 'FC6', 'FT8', 'FT10', 'T7', 'C5', 'C3', 'C1',
+	# 			  'Cz', 'C2', 'C4', 'C6', 'T8', 'TP9', 'TP7', 'CP5', 'CP3', 'CP1', 
+	# 			  'CPz', 'CP2', 'CP4', 'CP6', 'TP8', 'TP10', 'P7', 'P5', 'P3', 'P1',
+	# 			  'Pz', 'P2', 'P4', 'P6', 'P8', 'PO7', 'PO3', 'POz', 'PO4', 'PO8',
+	# 			  'O1', 'Oz', 'O2']
+    # channel_list = ['Fp1', 'Fp2', 'F3', 'F4', 'C3', 'C4', 'P3', 'P4', 'O1', 'O2',  'F7', 'F8', 'T7', 'T8', 'P7', 'P8', 'Fz', 'Cz', 'Pz', 'Oz',  'T9', 'T10']
+
+    # expand_X = np.zeros((X.shape[0], 63, X.shape[2]))
+    # for i, c in enumerate(channel_list):
+    #     try:
+    #         index = chan_order.index(c)  # 假设 'orange' 不在列表中
+    #         expand_X[:, index, :] = X[:, i, :]
+    #     except ValueError:
+    #         print(f"{c} is not in the list")
+
+    # model_idx = 'test0'
+    # gpus = [0,4,5,6,7]
+    # os.environ['CUDA_DEVICE_ORDER'] = 'PCI_BUS_ID'
+    # os.environ["CUDA_VISIBLE_DEVICES"] = ','.join(map(str, gpus))
+
+    # class ResidualAdd(nn.Module):
+    #     def __init__(self, fn):
+    #         super().__init__()
+    #         self.fn = fn
+
+    #     def forward(self, x, **kwargs):
+    #         res = x
+    #         x = self.fn(x, **kwargs)
+    #         x += res
+    #         return x
+
+    # class PatchEmbedding(nn.Module):
+    #     def __init__(self, emb_size=40):
+    #         super().__init__()
+    #         # revised from shallownet
+    #         self.tsconv = nn.Sequential(
+    #             nn.Conv2d(1, 40, (1, 25), (1, 1)),
+    #             nn.AvgPool2d((1, 51), (1, 5)),
+    #             nn.BatchNorm2d(40),
+    #             nn.ELU(),
+    #             nn.Conv2d(40, 40, (63, 1), (1, 1)),
+    #             nn.BatchNorm2d(40),
+    #             nn.ELU(),
+    #             nn.Dropout(0.5),
+    #         )
+
+    #         self.projection = nn.Sequential(
+    #             nn.Conv2d(40, emb_size, (1, 1), stride=(1, 1)),  
+    #             Rearrange('b e (h) (w) -> b (h w) e'),
+    #         )
+
+    #     def forward(self, x: Tensor) -> Tensor:
+    #         # b, _, _, _ = x.shape
+    #         x = self.tsconv(x)
+    #         x = self.projection(x)
+    #         return x
+
+    # class FlattenHead(nn.Sequential):
+    #     def __init__(self):
+    #         super().__init__()
+
+    #     def forward(self, x):
+    #         x = x.contiguous().view(x.size(0), -1)
+    #         return x
+
+
+    # class Enc_eeg(nn.Sequential):
+    #     def __init__(self, emb_size=40, **kwargs):
+    #         super().__init__(
+    #             PatchEmbedding(emb_size),
+    #             FlattenHead()
+    #         )
+
+            
+    # class Proj_eeg(nn.Sequential):
+    #     def __init__(self, embedding_dim=1440, proj_dim=768, drop_proj=0.5):
+    #         super().__init__(
+    #             nn.Linear(embedding_dim, proj_dim),
+    #             ResidualAdd(nn.Sequential(
+    #                 nn.GELU(),
+    #                 nn.Linear(proj_dim, proj_dim),
+    #                 nn.Dropout(drop_proj),
+    #             )),
+    #             nn.LayerNorm(proj_dim),
+    #         )
+
+    # Enc_eeg = Enc_eeg().cuda()
+    # Proj_eeg = Proj_eeg().cuda()
+    # Enc_eeg = nn.DataParallel(Enc_eeg, device_ids=[i for i in range(len(gpus))])
+    # Proj_eeg = nn.DataParallel(Proj_eeg, device_ids=[i for i in range(len(gpus))])
+
+    # model_base_url = '/home/luojingwei/code/NICE-EEG'
+    # Enc_eeg.load_state_dict(torch.load(model_base_url + '/model/' + model_idx + 'Enc_eeg_cls.pth'), strict=False)
+    # Proj_eeg.load_state_dict(torch.load(model_base_url + '/model/' + model_idx + 'Proj_eeg_cls.pth'), strict=False)
+
+    # Enc_eeg.eval()
+    # Proj_eeg.eval()
+    
+    # expand_X = torch.from_numpy(expand_X)
+    # expand_X = expand_X.float()
+    # expand_X = expand_X.unsqueeze(1)
+
+    # print(expand_X.shape)
+
+    # tfea = Proj_eeg(Enc_eeg(expand_X))
+    # tfea = tfea / tfea.norm(dim=1, keepdim=True)
+
+    # feat_map = tfea
+    # feat_map = F.avg_pool1d(tfea.unsqueeze(1), kernel_size=10, stride=10).squeeze(1)
+    # feat_map = feat_map.cpu().detach().numpy()
+
+    # ==================== 公共部分：切分数据集 ========================================
     if dataset_name == "2a":
         # 2a数据集分成了2个session，在不同天采集，分别由144，144个trial
         s1 = slice(0, 144)

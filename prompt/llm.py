@@ -3,18 +3,37 @@
 from openai import OpenAI # type: ignore
 import os
 from dotenv import load_dotenv # type: ignore
+import tiktoken
 load_dotenv()
 
+# client = OpenAI(
+#     api_key=os.getenv("QWEN_API_KEY"),
+#     base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+# )
 
-client = OpenAI(
-    api_key=os.getenv("QWEN_API_KEY"),
-    base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
-)
+# client = OpenAI(api_key=os.getenv("DeepSeek_API_KEY"), base_url="https://api.deepseek.com")
+
+# 获取模型的编码器（用于计算 tokens）
+def count_tokens(prompt):
+    enc = tiktoken.get_encoding("gpt2")  # 使用 GPT-2 的编码器，适用于大部分 GPT 模型
+    tokens = enc.encode(prompt)
+    return len(tokens)
 
 # 定义函数来调用 ChatGPT
 def ask_llm_online(model_type):
+    if model_type.startswith("qwen"):
+        client = OpenAI(api_key=os.getenv("QWEN_API_KEY"), base_url="https://dashscope.aliyuncs.com/compatible-mode/v1")
+    elif model_type.startswith("deepseek"):
+        client = OpenAI(api_key=os.getenv("DeepSeek_API_KEY"), base_url="https://api.deepseek.com")
+    elif model_type.startswith("moonshot"):
+        client = OpenAI(api_key=os.getenv("MoonShot_API_KEY"), base_url="https://api.moonshot.cn/v1")
+
     with open("output_with_text.txt", "r", encoding="utf-8") as file:
         prompt = file.read()
+
+    # 计算输入 token 的数量
+    input_token_count = count_tokens(prompt)
+    print(f"输入token数量: {input_token_count}")
 
     response = client.chat.completions.create(
         model= model_type,
@@ -27,7 +46,7 @@ def ask_llm_online(model_type):
             {"role": "user", "content": prompt},
         ],
         temperature=0,  # 设置温度较低以提高回答的一致性
-        max_tokens=8192  # 设置回答的最大 token 数量
+        max_tokens= 100 #8192  # 设置回答的最大 token 数量
     )
     # 获取并返回模型生成的文本
     return response.choices[0].message.content
