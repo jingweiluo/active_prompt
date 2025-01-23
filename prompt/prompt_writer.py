@@ -151,7 +151,7 @@ def prompt(train_data, train_label, test_data):
         # 结果要求
         file.write("### 要求 ###\n")
         # file.write("1. 分析每个样本的CSP特征值，确定被试者在想象的是左手还是右手。\n")
-        file.write("1. 返回的结果必须是一个 Python 列表，并以 JSON 格式表示。\n")
+        file.write("1. 返回的结果必须是一个 Python列表，并以 JSON 格式表示，所有字符串必须用双引号表示。\n")
         file.write("2. 列表中的每个元素均为字符，'left_hand', 'right_hand'\n")
         file.write(f"3. 列表的长度必须为{len(test_data)}(与待预测样本的数量一致)。\n")
         file.write("4. 仅返回标签列表，请不要包含任何多余内容！\n")

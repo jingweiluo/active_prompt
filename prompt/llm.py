@@ -15,7 +15,7 @@ load_dotenv()
 
 # 获取模型的编码器（用于计算 tokens）
 def count_tokens(prompt):
-    enc = tiktoken.get_encoding("gpt2")  # 使用 GPT-2 的编码器，适用于大部分 GPT 模型
+    enc = tiktoken.get_encoding("cl100k_base")  # 使用 GPT-2 的编码器，适用于大部分 GPT 模型
     tokens = enc.encode(prompt)
     return len(tokens)
 
