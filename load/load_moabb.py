@@ -145,12 +145,17 @@ def get_moabb_data(dataset_name, sub_index, testid):
     # channel_list = ['Fp1', 'Fp2', 'F3', 'F4', 'C3', 'C4', 'P3', 'P4', 'O1', 'O2',  'F7', 'F8', 'T7', 'T8', 'P7', 'P8', 'Fz', 'Cz', 'Pz', 'Oz',  'T9', 'T10']
 
     # expand_X = np.zeros((X.shape[0], 63, X.shape[2]))
+    # # 对应chan_order的顺序插入，无值的补0
+    # # for i, c in enumerate(channel_list):
+    # #     try:
+    # #         index = chan_order.index(c)  # 假设 'orange' 不在列表中
+    # #         expand_X[:, index, :] = X[:, i, :]
+    # #     except ValueError:
+    # #         print(f"{c} is not in the list")
+
+    # # 直接补0
     # for i, c in enumerate(channel_list):
-    #     try:
-    #         index = chan_order.index(c)  # 假设 'orange' 不在列表中
-    #         expand_X[:, index, :] = X[:, i, :]
-    #     except ValueError:
-    #         print(f"{c} is not in the list")
+    #     expand_X[:, i, :] = X[:, i, :]
 
     # model_idx = 'test0'
     # gpus = [0,4,5,6,7]

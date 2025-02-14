@@ -322,7 +322,7 @@ def qbc(train_data, train_labels, n_members, n_initial, n_queries, estimator=Ran
     # assembling the committee
     committee = Committee(
         learner_list=learner_list,
-        query_strategy=consensus_entropy_sampling, # vote_entropy_sampling max_disagreement_sampling, consensus_entropy_sampling
+        query_strategy=max_disagreement_sampling, # vote_entropy_sampling max_disagreement_sampling, consensus_entropy_sampling
     )
 
     # =============================================================Query=====================================================
@@ -401,7 +401,7 @@ def rd(query_method, train_data, train_labels, n_members, n_initial, n_queries, 
     learner_list = list()
 
     # n_initial = 12
-    n_idx = find_init_centroids(X, n_initial, measurement)
+    n_idx, _ = find_init_centroids(X, n_initial, measurement)
 
     for member_idx in range(n_members):
         # BootStrap 有放回的生成训练子集
@@ -420,7 +420,7 @@ def rd(query_method, train_data, train_labels, n_members, n_initial, n_queries, 
     # assembling the committee
     committee = Committee(
         learner_list=learner_list,
-        query_strategy=consensus_entropy_sampling, # vote_entropy_sampling max_disagreement_sampling, consensus_entropy_sampling
+        query_strategy=max_disagreement_sampling, # vote_entropy_sampling max_disagreement_sampling, consensus_entropy_sampling
     )
 
     # =============================================================Query=====================================================
@@ -538,7 +538,7 @@ if __name__=='__main__':
         Y = test_data.reshape(test_data.shape[0],-1)
         targets_y = np.array([lab_map[lab] for lab in test_labels])
 
-        init_id_list = find_init_centroids(X, init_num=12, measurement=measurement)
+        init_id_list, _ = find_init_centroids(X, init_num=12, measurement=measurement)
         rd_qbc_mean, rd_basic_mean, enhanced_qbc_mean, qbc_mean, random_mean = compare_test(train_data, test_data, train_labels, test_labels, repeat_times, measurement, estimator, init_idx=init_id_list)
         # rd_qbc_mean, rd_basic_mean, enhanced_qbc_mean, qbc_mean, random_mean = compare_test(train_data, test_data, train_labels, test_labels, repeat_times, "cs", init_idx=init_id_list)
 

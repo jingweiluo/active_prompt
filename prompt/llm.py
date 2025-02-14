@@ -45,7 +45,7 @@ def ask_llm_online(model_type):
             # },
             {"role": "user", "content": prompt},
         ],
-        temperature=0,  # 设置温度较低以提高回答的一致性
+        temperature=0.2,  # 设置温度较低以提高回答的一致性
         max_tokens= 100 #8192  # 设置回答的最大 token 数量
     )
     # 获取并返回模型生成的文本

@@ -11,6 +11,7 @@ from utils import collect_y_pred, get_accuracy_and_log, collect_y_pred_single
 from active_prompt.load.load_moabb import get_moabb_data
 from active_prompt.query.qbc import qbc, kate, rd, find_centroids, kate_qbc
 from tqdm import tqdm
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 # from llm import ask_llm
 
 def get_active_learned_samples_indices(train_data, num_demos):
@@ -30,9 +31,15 @@ def static_demo_predict(train_data, test_data, train_labels, test_labels, test_m
     elif way_select_demo == "basic_rd":
         selected_indices = get_active_learned_samples_indices(train_data, num_demos)
     elif way_select_demo == "qbc":
-        selected_indices,_ = qbc(train_data, train_labels, n_members=5, n_initial=12, n_queries=num_demos)
+        selected_indices,_ = qbc(train_data, train_labels, n_members=5, n_initial=8, n_queries=num_demos)
     elif way_select_demo == "qbc_return_all":
         selected_indices,_ = qbc(train_data, train_labels, n_members=5, n_initial=4, n_queries=num_demos-4, is_return_all=True)
+    elif way_select_demo == "rd_basic":
+        selected_indices,_ = rd("basic", train_data, train_labels, n_members=5, n_initial=2, n_queries=8, measurement=measurement, estimator=RandomForestClassifier)
+    elif way_select_demo == "rd_qbc":
+        selected_indices,_ = rd("qbc", train_data, train_labels, n_members=5, n_initial=2, n_queries=8, measurement=measurement, estimator=RandomForestClassifier)
+    elif way_select_demo == "cetroids":
+        selected_indices = find_centroids(train_data, train_labels, num_demos, measurement)
     selected_labels = [train_labels[i] for i in selected_indices]
 
     demo_data = [train_data[i] for i in selected_indices]
@@ -83,7 +90,7 @@ if __name__ == '__main__':
     num_demos = 8 # 演示示例的数量
     sub_index = 3 # 被试编号(1-9)
     max_predict_num = 10 # 单次最多预测样本的个数，演示示例+单次预测样本个数，加起来的本文长度不能超过LLM的max_token
-    model_type = 'deepseek-chat'# "moonshot-v1-32k", "deepseek-chat", "deepseek-reasoner", "qwen-long" "qwen2.5-3b-instruct" "Qwen/Qwen2.5-Coder-32B-Instruct" # 'Qwen/Qwen2.5-7B-Instruct'# "qwen2.5-7b-instruct" Qwen/Qwen2.5-Coder-32B-Instruct Qwen/Qwen2.5-1.5B-Instruct
+    model_type = "qwen2.5-14b-instruct-1m" # "moonshot-v1-32k", "deepseek-chat", "deepseek-reasoner", "qwen-long" "qwen2.5-3b-instruct" "Qwen/Qwen2.5-Coder-32B-Instruct" # 'Qwen/Qwen2.5-7B-Instruct'# "qwen2.5-7b-instruct" Qwen/Qwen2.5-Coder-32B-Instruct Qwen/Qwen2.5-1.5B-Instruct
     # way_select_demo = "random" # basic_rd, random, qbc
     test_mode = "outer_test"
     dataset_name = "2a"
@@ -109,14 +116,14 @@ if __name__ == '__main__':
 
 
         for i in tqdm(range(n_times)):
-            # accuracy, precision, recall, f1 = static_demo_predict(train_data, test_data, train_labels, test_labels, test_mode, num_demos, sub_index, max_predict_num, model_type, 'qbc', is_model_online, test_num)
+            accuracy, precision, recall, f1 = static_demo_predict(train_data, test_data, train_labels, test_labels, test_mode, num_demos, sub_index, max_predict_num, model_type, 'rd_basic', is_model_online, test_num)
             accuracy2, precision2, recall2, f12 = static_demo_predict(train_data, test_data, train_labels, test_labels, test_mode, num_demos, sub_index, max_predict_num, model_type, 'random', is_model_online, test_num)
-            accuracy3, precision3, recall3, f13 = static_demo_predict(train_data, test_data, train_labels, test_labels, test_mode, num_demos, sub_index, max_predict_num, model_type, 'qbc_return_all', is_model_online, test_num)
+            accuracy3, precision3, recall3, f13 = static_demo_predict(train_data, test_data, train_labels, test_labels, test_mode, num_demos, sub_index, max_predict_num, model_type, 'cetroids', is_model_online, test_num)
             # accuracy4, precision4, recall4, f14 = dynamic_demo_predict(train_data, test_data, train_labels, test_labels, test_mode, num_demos, sub_index, max_predict_num, model_type, "kate", is_model_online, measurement)
             # accuracy5, precision5, recall5, f15 = dynamic_demo_predict(train_data, test_data, train_labels, test_labels, test_mode, num_demos, sub_index, max_predict_num, model_type, "find_centroids", is_model_online, measurement)
             # accuracy6, precision6, recall6, f16 = dynamic_demo_predict(train_data, test_data, train_labels, test_labels, test_mode, num_demos, sub_index, max_predict_num, model_type, "kate_qbc", is_model_online, measurement)
 
-            # qbc_score_list.append(accuracy)
+            qbc_score_list.append(accuracy)
             rand_score_list.append(accuracy2)
             qbc_return_all_score_list.append(accuracy3)
             # kate_score_list.append(accuracy4)
@@ -124,14 +131,14 @@ if __name__ == '__main__':
             # kate_qbc_score_list.append(accuracy6)
 
 
-            # qbc_mean = np.mean(qbc_score_list)
+            qbc_mean = np.mean(qbc_score_list)
             random_mean = np.mean(rand_score_list)
             qbc_return_all_mean = np.mean(qbc_return_all_score_list)
             # kate_mean = np.mean(kate_score_list)
             # centroid_mean = np.mean(centroid_score_list)
             # kate_qbc_mean = np.mean(kate_qbc_score_list)
 
-            print(random_mean, qbc_return_all_mean)
+            print(random_mean, np.std(rand_score_list), qbc_mean, np.std(qbc_score_list), qbc_return_all_mean, np.std(qbc_return_all_score_list))
     
     compare_test(repeat_times)
 
