@@ -9,7 +9,7 @@ from active_prompt.prompt.prompt_writer import prompt
 from active_prompt.query.active_select import BasicRD, find_k_similar, find_k_similar_for_each_label
 from utils import collect_y_pred, get_accuracy_and_log, collect_y_pred_single
 from active_prompt.load.load_moabb import get_moabb_data
-from active_prompt.query.qbc import qbc, kate, rd, find_centroids, kate_qbc
+from active_prompt.query.qbc import qbc, kate, rd, find_centroids, kate_qbc, kate_basic
 from tqdm import tqdm
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 # from llm import ask_llm
@@ -25,9 +25,42 @@ def get_active_learned_samples_indices(train_data, num_demos):
 def ndToList(array):
     return [array[i] for i in range(array.shape[0])]
 
-def static_demo_predict(train_data, test_data, train_labels, test_labels, test_mode, num_demos, sub_index, max_predict_num, model_type, way_select_demo, is_model_online, test_num):
+# 将两类样本根据指定方式结合，返回一个index list
+def combineIndices(combine_method, left_local_indices, right_local_indices, left_indices, right_indices):
+    left_selects_indices = [left_indices[i] for i in left_local_indices]
+    right_selects_indices = [right_indices[i] for i in right_local_indices]
+    if combine_method == 'shuffle':
+        merge_list = left_selects_indices + right_selects_indices
+        random.shuffle(merge_list)
+        return merge_list
+    elif combine_method == 'lasagna-left':
+        merge_list = []
+        for i in range(len(left_selects_indices)):
+            merge_list.append(left_selects_indices[i])
+            merge_list.append(right_selects_indices[i])
+        return merge_list
+    elif combine_method == 'lasagna-right':
+        merge_list = []
+        for i in range(len(left_selects_indices)):
+            merge_list.append(right_selects_indices[i])
+            merge_list.append(left_selects_indices[i])
+        return merge_list
+
+
+
+def static_demo_predict(train_data, test_data, train_labels, test_labels, test_mode, num_demos, sub_index, max_predict_num, model_type, way_select_demo, is_model_online, test_num, combine_method):
+    left_indices = [i for i,l in enumerate(train_labels) if l == 'left_hand']
+    right_indices = [i for i,l in enumerate(train_labels) if l == 'right_hand']
+    left_data = [train_data[i] for i in left_indices]
+    right_data = [train_data[i] for i in right_indices]
+    left_labels = [train_labels[i] for i in left_indices]
+    right_labels = [train_labels[i] for i in right_indices]
+
     if way_select_demo == "random":
-        selected_indices = random.sample(list(range(len(train_labels))), num_demos)
+        # selected_indices = random.sample(list(range(len(train_labels))), num_demos)
+        left_local_indices = random.sample(list(range(len(left_indices))), num_demos//2)
+        right_local_indices = random.sample(list(range(len(right_indices))), num_demos//2)
+        selected_indices = combineIndices(combine_method, left_local_indices, right_local_indices, left_indices, right_indices)
     elif way_select_demo == "basic_rd":
         selected_indices = get_active_learned_samples_indices(train_data, num_demos)
     elif way_select_demo == "qbc":
@@ -39,7 +72,9 @@ def static_demo_predict(train_data, test_data, train_labels, test_labels, test_m
     elif way_select_demo == "rd_qbc":
         selected_indices,_ = rd("qbc", train_data, train_labels, n_members=5, n_initial=2, n_queries=8, measurement=measurement, estimator=RandomForestClassifier)
     elif way_select_demo == "cetroids":
-        selected_indices = find_centroids(train_data, train_labels, num_demos, measurement)
+        left_local_indices = find_centroids(left_data, left_labels, num_demos // 2, measurement)
+        right_local_indices = find_centroids(right_data, right_labels, num_demos // 2, measurement)
+        selected_indices = combineIndices(combine_method, left_local_indices, right_local_indices, left_indices, right_indices)
     selected_labels = [train_labels[i] for i in selected_indices]
 
     demo_data = [train_data[i] for i in selected_indices]
@@ -62,6 +97,13 @@ def static_demo_predict(train_data, test_data, train_labels, test_labels, test_m
     return accuracy, precision, recall, f1
 
 def dynamic_demo_predict(train_data, test_data, train_labels, test_labels, test_mode, num_demos, sub_index, max_predict_num, model_type, way_select_demo, is_model_online, measurement):
+    left_indices = [i for i,l in enumerate(train_labels) if l == 'left_hand']
+    right_indices = [i for i,l in enumerate(train_labels) if l == 'right_hand']
+    left_data = [train_data[i] for i in left_indices]
+    right_data = [train_data[i] for i in right_indices]
+    left_labels = [train_labels[i] for i in left_indices]
+    right_labels = [train_labels[i] for i in right_indices]
+
     test_data = np.array(test_data)
     Y = test_data.reshape(test_data.shape[0],-1)
 
@@ -75,6 +117,10 @@ def dynamic_demo_predict(train_data, test_data, train_labels, test_labels, test_
             selected_indices = kate(train_data, train_labels, Y[i], num_demos, measurement)
         elif way_select_demo == "kate_qbc":
             selected_indices,_ = kate_qbc(train_data, train_labels, Y[i], num_demos, measurement)
+        elif way_select_demo == "kate_basic":
+            left_local_indices = kate_basic(left_data, left_labels, Y[i], num_demos // 2, measurement)
+            right_local_indices = kate_basic(right_data, right_labels, Y[i], num_demos // 2, measurement)
+            selected_indices = combineIndices(combine_method, left_local_indices, right_local_indices, left_indices, right_indices)
 
         example_data = [train_data[i] for i in selected_indices]
         example_labels = [train_labels[i] for i in selected_indices]
@@ -96,7 +142,8 @@ if __name__ == '__main__':
     dataset_name = "2a"
     test_id = 1 # 2a中只有0-1两个session，2b中有0-4五个session
     is_model_online = True # 谨慎开启，设置为online时要提前计算费用
-    measurement = 'ed' # 衡量向量距离的方式，ed, cs
+    measurement = 'cs' # 衡量向量距离的方式，ed, cs
+    combine_method = 'shuffle' # shuffle, lasagna-left, lasagna-right
     repeat_times = 30
     test_num = None # 10, None
 
@@ -107,38 +154,36 @@ if __name__ == '__main__':
     test_labels = test_labels.tolist()
 
     def compare_test(n_times):
-        qbc_score_list = []
-        rand_score_list = []
-        qbc_return_all_score_list = []
-        kate_score_list = []
-        centroid_score_list = []
-        kate_qbc_score_list = []
+        list1 = []
+        list2 = []
+        list3 = []
+        list4 = []
+        list5 = []
+        list6 = []
 
 
         for i in tqdm(range(n_times)):
-            accuracy, precision, recall, f1 = static_demo_predict(train_data, test_data, train_labels, test_labels, test_mode, num_demos, sub_index, max_predict_num, model_type, 'rd_basic', is_model_online, test_num)
-            accuracy2, precision2, recall2, f12 = static_demo_predict(train_data, test_data, train_labels, test_labels, test_mode, num_demos, sub_index, max_predict_num, model_type, 'random', is_model_online, test_num)
-            accuracy3, precision3, recall3, f13 = static_demo_predict(train_data, test_data, train_labels, test_labels, test_mode, num_demos, sub_index, max_predict_num, model_type, 'cetroids', is_model_online, test_num)
-            # accuracy4, precision4, recall4, f14 = dynamic_demo_predict(train_data, test_data, train_labels, test_labels, test_mode, num_demos, sub_index, max_predict_num, model_type, "kate", is_model_online, measurement)
+            # accuracy, precision, recall, f1 = static_demo_predict(train_data, test_data, train_labels, test_labels, test_mode, num_demos, sub_index, max_predict_num, model_type, 'random', is_model_online, test_num, combine_method)
+            # accuracy2, precision2, recall2, f12 = static_demo_predict(train_data, test_data, train_labels, test_labels, test_mode, num_demos, sub_index, max_predict_num, model_type, 'rd', is_model_online, test_num, combine_method)
+            # accuracy3, precision3, recall3, f13 = static_demo_predict(train_data, test_data, train_labels, test_labels, test_mode, num_demos, sub_index, max_predict_num, model_type, 'cetroids', is_model_online, test_num, combine_method)
+            accuracy4, precision4, recall4, f14 = dynamic_demo_predict(train_data, test_data, train_labels, test_labels, test_mode, num_demos, sub_index, max_predict_num, model_type, "kate_basic", is_model_online, measurement)
             # accuracy5, precision5, recall5, f15 = dynamic_demo_predict(train_data, test_data, train_labels, test_labels, test_mode, num_demos, sub_index, max_predict_num, model_type, "find_centroids", is_model_online, measurement)
             # accuracy6, precision6, recall6, f16 = dynamic_demo_predict(train_data, test_data, train_labels, test_labels, test_mode, num_demos, sub_index, max_predict_num, model_type, "kate_qbc", is_model_online, measurement)
 
-            qbc_score_list.append(accuracy)
-            rand_score_list.append(accuracy2)
-            qbc_return_all_score_list.append(accuracy3)
-            # kate_score_list.append(accuracy4)
-            # centroid_score_list.append(accuracy5)
-            # kate_qbc_score_list.append(accuracy6)
+            # list1.append(accuracy)
+            # list1.append(accuracy2)
+            # list3.append(accuracy3)
+            list4.append(accuracy4)
+            # list5.append(accuracy5)
+            # list6.append(accuracy6)
 
+            mean1 = np.mean(list4)
+            std1 = np.std(list4)
 
-            qbc_mean = np.mean(qbc_score_list)
-            random_mean = np.mean(rand_score_list)
-            qbc_return_all_mean = np.mean(qbc_return_all_score_list)
-            # kate_mean = np.mean(kate_score_list)
-            # centroid_mean = np.mean(centroid_score_list)
-            # kate_qbc_mean = np.mean(kate_qbc_score_list)
+            # mean3 = np.mean(list3)
+            # std3 = np.std(list3)
 
-            print(random_mean, np.std(rand_score_list), qbc_mean, np.std(qbc_score_list), qbc_return_all_mean, np.std(qbc_return_all_score_list))
-    
+            print(mean1, std1)
+
     compare_test(repeat_times)
 

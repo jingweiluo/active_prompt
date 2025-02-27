@@ -155,3 +155,51 @@ def prompt(train_data, train_label, test_data):
         file.write("2. 列表中的每个元素均为字符，'left_hand', 'right_hand'\n")
         file.write(f"3. 列表的长度必须为{len(test_data)}(与待预测样本的数量一致)。\n")
         file.write("4. 仅返回标签列表，请不要包含任何多余内容！\n")
+
+def prompt_dynamic(left_demo, right_demo, train_data, train_label, test_data):
+    # 开始写文件
+    with open("output_with_text.txt", "w", encoding='utf-8') as file:
+        # 任务描述
+        file.write("### 任务描述 ###\n")
+        file.write("给定一组脑电信号（EEG）样本的特征值，判断待预测样本所对应的想象运动是左手（left_hand）还是右手（right_hand）。\n\n")
+
+        # # 背景信息
+        # file.write("### 背景信息 ###\n")
+        # file.write("样本的特征值是从EEG数据中提取的，得到的过程如下：首先将原始EEG信号在8-32Hz的频率范围内分解成6个频段，每隔4Hz一个频段。接着，对每个频段的信号应用共空间模式（CSP）算法，从中提取8个最重要的主成分。这48个特征值（每个频段8个）合并形成了这个一维信号数组，有效捕捉了脑电活动在不同频段下的空间分布和变化情况，适用于进一步的分析和模式识别任务。\n\n")
+
+        # 分析方法
+        file.write("### 分析方法 ###\n")
+        file.write("让我们一步步分析 \n\n")
+        # file.write("让我们一步步分析，请构建一个分类模型来分类EEG数据 \n\n")
+
+        file.write("### 左手运动想象示例样本 ###\n")
+        for i, array_2d in enumerate(left_demo):
+            file.write(f"特征值: {np.array2string(array_2d.flatten(), separator=' ')}\n")
+            file.write(f"标签: 'left_hand'\n\n")
+
+        file.write("### 右手运动想象示例样本 ###\n")
+        for i, array_2d in enumerate(right_demo):
+            file.write(f"特征值: {np.array2string(array_2d.flatten(), separator=' ')}\n")
+            file.write(f"标签: 'right_hand'\n\n")
+
+        # 示例样本
+        file.write("### 以下是与待预测样本距离最接近的示例样本 ###\n")
+        for i, array_2d in enumerate(train_data):
+            file.write(f"#### 样本 {i+1} ####\n")
+            file.write(f"特征值: {np.array2string(array_2d.flatten(), separator=' ')}\n")
+            if i < 1:
+                file.write(f"标签: {train_label[i]}\n\n")
+
+        # 待预测样本
+        file.write("### 待预测样本 ###\n")
+        for i, array_2d in enumerate(test_data):
+            file.write(f"#### 样本 {i+1} ####\n")
+            file.write(f"特征值: {np.array2string(array_2d.flatten(), separator=' ')}\n\n")
+
+        # 结果要求
+        file.write("### 要求 ###\n")
+        # file.write("1. 分析每个样本的CSP特征值，确定被试者在想象的是左手还是右手。\n")
+        file.write("1. 返回的结果必须是一个 Python列表，并以 JSON 格式表示，所有字符串必须用双引号表示。\n")
+        file.write("2. 列表中的每个元素均为字符，'left_hand', 'right_hand'\n")
+        file.write(f"3. 列表的长度必须为{len(test_data)}(与待预测样本的数量一致)。\n")
+        file.write("4. 仅返回标签列表，请不要包含任何多余内容！\n")
