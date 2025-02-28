@@ -110,7 +110,7 @@ def get_moabb_data(dataset_name, sub_index, testid):
     X, labels, meta = paradigm.get_data(dataset=dataset, subjects=[sub_index])
 
     #============================这一部分是提取CSP特征==========================================
-    n_components = 8  # 选择要分解的主成分数量
+    n_components = 2  # 选择要分解的主成分数量
     csp = CSP(n_components=n_components, norm_trace=False)
 
     def get_freq_spatial_feat(X, labels, csp):
@@ -123,6 +123,7 @@ def get_moabb_data(dataset_name, sub_index, testid):
         return np.concatenate(feat_map, axis=1)
 
     feat_map = get_freq_spatial_feat(X, labels, csp) # num_trials, num_freq_bands, n_components 由于n_components < n_chans, 所以=n_chans
+    feat_map = feat_map[:, 0:4, :]
     index = get_first_index(meta, column_index=1, target_value="1test") # number of training trials
     print(meta)
 
