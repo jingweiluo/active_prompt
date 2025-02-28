@@ -470,6 +470,32 @@ def rd(query_method, train_data, train_labels, n_members, n_initial, n_queries, 
             idx_list.append(gloabl_idx)
 
     return idx_list, committee
+
+# def gs(train_data, train_labels, n_initial, n_queries, measurement, init_indices):
+#     # ==========================================================初始化数据==================================================
+#     train_data = np.array(train_data)
+#     train_labels = np.array(train_labels)
+#     X = train_data.reshape(train_data.shape[0],-1)
+#     lab_map = {
+#         'left_hand': 1,
+#         'right_hand':2
+#     }
+#     targets = np.array([lab_map[lab] for lab in train_labels])
+#     # ==========================================================初始化选择的点==================================================
+
+#     if init_indices:
+#         n_idx = init_indices
+#     else:
+#         n_idx, _ = find_init_centroids(X, n_initial, measurement)
+
+#     # =============================================================Query=====================================================
+#     idx_list = [] # 要query的sample list
+#     labeled_indices = deepcopy(n_idx) # 已经标注的sample list
+
+#     for i in range(n_queries):
+
+
+#     return idx_list
 # =============================================================测试=====================================================
 def compare_test(train_data, test_data, train_labels, test_labels, n_times, measurement, estimator, init_idx):
     # 导入测试数据
