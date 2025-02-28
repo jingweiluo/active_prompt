@@ -10,7 +10,7 @@ def prompt4(train_data, train_label, test_data):
         file.write("      2: 恐惧\n")
         file.write("      3: 开心\n\n")
         # file.write("### 从以上四个选项中选择一个选项对应的数字作为该段信号的标签\n\n")
-        
+
         # Write predicted EEG signal information
         # file.write("### 待预测的EEG信号的微分熵值如下，长度为170s，数组中的五个值分别对应如下5个频段的微分熵：\n")
         # file.write("      1. Delta: 1~4 Hz\n")
@@ -125,14 +125,14 @@ def prompt(train_data, train_label, test_data):
         # 任务描述
         file.write("### 任务描述 ###\n")
         file.write("给定一组脑电信号（EEG）样本的特征值，判断待预测样本所对应的想象运动是左手（left_hand）还是右手（right_hand）。\n\n")
-        
+
         # # 背景信息
         # file.write("### 背景信息 ###\n")
         # file.write("样本的特征值是从EEG数据中提取的，得到的过程如下：首先将原始EEG信号在8-32Hz的频率范围内分解成6个频段，每隔4Hz一个频段。接着，对每个频段的信号应用共空间模式（CSP）算法，从中提取8个最重要的主成分。这48个特征值（每个频段8个）合并形成了这个一维信号数组，有效捕捉了脑电活动在不同频段下的空间分布和变化情况，适用于进一步的分析和模式识别任务。\n\n")
-        
+
         # 分析方法
         file.write("### 分析方法 ###\n")
-        file.write("让我们一步步分析 \n\n")
+        file.write("让我们一步步分析\n\n")
         # file.write("让我们一步步分析，请构建一个分类模型来分类EEG数据 \n\n")
 
         # 示例样本
@@ -141,13 +141,13 @@ def prompt(train_data, train_label, test_data):
             file.write(f"#### 样本 {i+1} ####\n")
             file.write(f"特征值: {np.array2string(array_2d.flatten(), separator=' ')}\n")
             file.write(f"标签: {train_label[i]}\n\n")
-        
+
         # 待预测样本
         file.write("### 待预测样本 ###\n")
         for i, array_2d in enumerate(test_data):
             file.write(f"#### 样本 {i+1} ####\n")
             file.write(f"特征值: {np.array2string(array_2d.flatten(), separator=' ')}\n\n")
-        
+
         # 结果要求
         file.write("### 要求 ###\n")
         # file.write("1. 分析每个样本的CSP特征值，确定被试者在想象的是左手还是右手。\n")
