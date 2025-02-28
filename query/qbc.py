@@ -386,7 +386,7 @@ def rand_select(train_data, train_labels, n_members, n_initial, estimator):
     )
     return n_idx, committee
 
-def rd(query_method, train_data, train_labels, n_members, n_initial, n_queries, measurement, estimator, init_idx=None):
+def rd(query_method, train_data, train_labels, n_members, n_initial, n_queries, measurement, estimator, init_indices):
     # ==========================================================初始化数据==================================================
     train_data = np.array(train_data)
     train_labels = np.array(train_labels)
@@ -401,7 +401,10 @@ def rd(query_method, train_data, train_labels, n_members, n_initial, n_queries, 
     learner_list = list()
 
     # n_initial = 12
-    n_idx, _ = find_init_centroids(X, n_initial, measurement)
+    if init_indices:
+        n_idx = init_indices
+    else:
+        n_idx, _ = find_init_centroids(X, n_initial, measurement)
 
     for member_idx in range(n_members):
         # BootStrap 有放回的生成训练子集
